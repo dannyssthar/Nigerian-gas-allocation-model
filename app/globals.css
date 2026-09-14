@@ -163,13 +163,67 @@ body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--fo
   background:var(--glass);border-bottom:1px solid var(--glass-border);
   backdrop-filter:saturate(180%) blur(18px);-webkit-backdrop-filter:saturate(180%) blur(18px)}
 
-.djn-nav__mark{display:flex;align-items:baseline;gap:var(--s2);flex-shrink:0}
+.djn-nav__mark{display:flex;align-items:baseline;gap:var(--s3);flex-shrink:0}
 .djn-nav__mark b{font-family:var(--font-display);font-weight:800;font-size:1.05rem;
   letter-spacing:var(--tr-display)}
+.djn-nav__sub{display:none}
 
-.djn-nav__links{display:flex;gap:2px;overflow-x:auto;flex:1;
-  scrollbar-width:none;-ms-overflow-style:none}
-.djn-nav__links::-webkit-scrollbar{display:none}
+.djn-nav__links{display:flex;gap:2px;flex:1;justify-content:center}
+.djn-nav__actions{display:flex;gap:var(--s2);flex-shrink:0;align-items:center;margin-left:auto}
+
+/* ── hamburger ───────────────────────────────────────────────
+   Three lines that become a cross. The top and bottom rotate into the X and
+   the middle fades, which reads as one object changing state rather than two
+   icons swapping. */
+.djn-nav__burger{display:none;position:relative;width:40px;height:40px;
+  border:1px solid var(--line-strong);border-radius:var(--r-pill);
+  background:var(--surface);flex-shrink:0;transition:border-color .2s}
+.djn-nav__burger:hover{border-color:var(--text-primary)}
+.djn-nav__burger span{position:absolute;left:11px;width:18px;height:1.6px;
+  background:var(--text-primary);border-radius:2px;
+  transition:transform .34s var(--ease-ent),opacity .2s var(--ease-std)}
+.djn-nav__burger span[data-line="1"]{top:14px}
+.djn-nav__burger span[data-line="2"]{top:19.2px}
+.djn-nav__burger span[data-line="3"]{top:24.4px}
+.djn-nav__burger span[data-line="1"][data-open="true"]{transform:translateY(5.2px) rotate(45deg)}
+.djn-nav__burger span[data-line="2"][data-open="true"]{opacity:0;transform:scaleX(.4)}
+.djn-nav__burger span[data-line="3"][data-open="true"]{transform:translateY(-5.2px) rotate(-45deg)}
+
+/* ── mobile menu ─────────────────────────────────────────── */
+.djn-menu-scrim{position:fixed;inset:0;z-index:98;background:var(--scrim);
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.djn-menu{position:fixed;top:var(--nav-h);left:0;right:0;z-index:99;
+  max-height:calc(100svh - var(--nav-h));overflow-y:auto;
+  padding:var(--s5) var(--s5) var(--s8);
+  background:var(--glass);border-bottom:1px solid var(--line-strong);
+  backdrop-filter:saturate(180%) blur(22px);-webkit-backdrop-filter:saturate(180%) blur(22px);
+  box-shadow:var(--e3)}
+
+.djn-menu__link{display:flex;align-items:center;gap:var(--s4);
+  padding:var(--s4) var(--s3);border-radius:var(--r-md);
+  border-bottom:1px solid var(--line);transition:background .2s}
+.djn-menu__link:active{background:var(--bg-tertiary)}
+.djn-menu li:last-child .djn-menu__link{border-bottom:none}
+.djn-menu__num{flex-shrink:0;color:var(--text-muted)}
+.djn-menu__label{display:block;font-family:var(--font-display);font-weight:700;
+  font-size:1.15rem;letter-spacing:var(--tr-title);color:var(--text-primary)}
+.djn-menu__hint{display:block;font-size:var(--fs-micro);color:var(--text-tertiary);margin-top:3px}
+.djn-menu__link[aria-current="true"] .djn-menu__label{color:var(--accent-text)}
+.djn-menu__dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;
+  background:var(--accent-graphic);box-shadow:var(--accent-glow)}
+.djn-menu__foot{margin-top:var(--s6);padding-top:var(--s5);border-top:1px solid var(--line)}
+
+@media (min-width:900px){
+  .djn-nav__sub{display:inline}
+}
+/* Below 900px the six inline links come out and the hamburger goes in. Six
+   abbreviated labels on a phone is technically responsive and practically
+   unusable. */
+@media (max-width:900px){
+  .djn-nav__links{display:none}
+  .djn-nav__guide{display:none}
+  .djn-nav__burger{display:block}
+}
 .djn-nav__link{position:relative;padding:7px 12px;border-radius:var(--r-pill);
   font-size:var(--fs-sm);font-weight:580;color:var(--text-tertiary);white-space:nowrap;
   transition:color .2s var(--ease-std)}
