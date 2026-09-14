@@ -3,13 +3,21 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ChainDiagram from "@/components/ChainDiagram";
+import Hero from "@/components/Hero";
+import { Method, Standing } from "@/components/Method";
+import Nav from "@/components/Nav";
 import ParameterRail from "@/components/ParameterRail";
-import { BreakevenPanel, Distribution, NetbackChart, SiteTable } from "@/components/Results";
-import { CountUp } from "@/components/Primitives";
-import ThemeToggle from "@/components/ThemeToggle";
+import { Skeleton } from "@/components/Primitives";
+import {
+  BreakevenPanel,
+  Distribution,
+  NetbackChart,
+  SiteTable,
+  Verdict,
+} from "@/components/Results";
+import Walkthrough, { useWalkthrough } from "@/components/Walkthrough";
 import {
   getParameters,
-  money,
   runScenario,
   type ParametersResponse,
   type ScenarioResponse,
@@ -21,11 +29,14 @@ export default function Page() {
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pane, setPane] = useState<"inputs" | "results">("results");
+  const [sheet, setSheet] = useState(false);
 
-  /* A slider drag fires dozens of change events. Debouncing to one call per
-     140ms keeps the engine from being hammered while still feeling immediate,
-     and the abort controller cancels any run whose answer is already stale. */
+  const tour = useWalkthrough();
+
+  /* A slider drag fires dozens of events. Debouncing to one call per 140 ms
+     keeps the engine from being hammered while still feeling immediate, and
+     the generation counter discards any response whose answer is already
+     stale, so a fast drag can never leave the page showing an older run. */
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generation = useRef(0);
 
@@ -66,73 +77,53 @@ export default function Page() {
     compute({});
   }
 
+  // Lock the page behind the bottom sheet, so a scroll gesture moves the
+  // sheet's own content rather than the article underneath it.
+  useEffect(() => {
+    document.body.style.overflow = sheet ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [sheet]);
+
   return (
-    <div className="djn-shell">
-      {/* ── controls ─────────────────────────────────────────────── */}
-      <aside
-        className="djn-rail"
-        style={{ display: pane === "inputs" ? "block" : undefined }}
-        data-pane={pane}
-      >
-        <div style={{ marginBottom: "var(--s8)" }}>
-          <p className="djn-eyebrow djn-eyebrow--accent">Gas Allocation Model</p>
-          <h1
-            className="djn-display"
-            style={{ fontSize: "1.9rem", marginTop: 6, letterSpacing: "-0.03em" }}
-          >
-            DJN
-          </h1>
-          <p
-            style={{
-              fontSize: "var(--fs-micro)",
-              color: "var(--text-muted)",
-              marginTop: "var(--s2)",
-              lineHeight: 1.6,
-            }}
-          >
-            DanJohn&ndash;Nwobi. CPEEL, University of Ibadan.
-            {meta && (
-              <>
-                <br />
-                Parameter set {meta.set_id} &middot; {meta.sourced_count} sourced,{" "}
-                {meta.unsourced_count} not yet
-              </>
-            )}
-          </p>
-        </div>
+    <>
+      <Nav onReplayTour={tour.start} />
 
-        {meta ? (
-          <ParameterRail
-            parameters={meta.parameters}
-            values={overrides}
-            onChange={onChange}
-            onReset={onReset}
-            busy={busy}
-          />
-        ) : (
-          <p className="djn-data-label">Loading parameters</p>
-        )}
-      </aside>
+      <Hero onStart={tour.start} />
 
-      {/* ── results ──────────────────────────────────────────────── */}
-      <main
-        style={{
-          padding: "var(--s8) var(--s6) var(--s24)",
-          display: pane === "results" ? "block" : undefined,
-        }}
-      >
-        <div style={{ maxWidth: 1080, marginInline: "auto", display: "flex", flexDirection: "column", gap: "var(--s6)" }}>
-          <header className="flex flex-wrap items-start justify-between gap-4">
-            <div style={{ maxWidth: "62ch" }}>
-              <p className="djn-eyebrow">Powering compute or powering the nation</p>
-              <h2
-                className="djn-title"
-                style={{ fontSize: "var(--fs-title)", marginTop: "var(--s2)" }}
-              >
-                A decision-support tool for siting AI data centres in Nigeria
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
+      <div className="djn-workbench">
+        {/* Visibility is controlled only by data-open, never an inline style.
+            On desktop the media query makes it a static sidebar and the
+            attribute is inert. */}
+        <aside
+          className="djn-rail"
+          data-open={sheet}
+          aria-label="Model assumptions"
+          aria-hidden={false}
+        >
+          {meta ? (
+            <ParameterRail
+              parameters={meta.parameters}
+              values={overrides}
+              onChange={onChange}
+              onReset={onReset}
+              busy={busy}
+              onClose={sheet ? () => setSheet(false) : undefined}
+            />
+          ) : (
+            <p className="djn-data-label">Loading assumptions</p>
+          )}
+        </aside>
+
+        <main className="djn-results">
+          <div style={{ maxWidth: 1020, marginInline: "auto", display: "flex", flexDirection: "column", gap: "var(--s6)" }}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="djn-explain" style={{ maxWidth: "58ch" }}>
+                Everything below recomputes live from the assumptions panel. Hover any underlined
+                term or circled <strong style={{ color: "var(--text-primary)" }}>i</strong> for a
+                plain-English definition you can select and copy.
+              </p>
               <AnimatePresence>
                 {busy && (
                   <motion.span
@@ -140,205 +131,105 @@ export default function Page() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     className="djn-data-label"
+                    style={{ color: "var(--accent-text)" }}
                   >
                     Recomputing
                   </motion.span>
                 )}
               </AnimatePresence>
-              <ThemeToggle />
             </div>
-          </header>
 
-          {error && (
-            <div
-              className="djn-card djn-squircle-sm"
-              style={{
-                padding: "var(--s5)",
-                borderColor: "color-mix(in srgb,var(--status-error) 40%,transparent)",
-              }}
-            >
-              <p className="djn-eyebrow" style={{ color: "var(--status-error)" }}>
-                The engine is not reachable
-              </p>
-              <p style={{ fontSize: "var(--fs-sm)", marginTop: 8, color: "var(--text-secondary)" }}>
-                {error}
-              </p>
-            </div>
-          )}
-
-          {data && (
-            <>
-              <Verdict data={data} />
-              <ChainDiagram data={data} />
-              <NetbackChart data={data} />
-              <BreakevenPanel data={data} />
-              {data.samples && (
-                <Distribution
-                  samples={data.samples.breakeven}
-                  p10={data.breakeven.p10}
-                  p50={data.breakeven.p50}
-                  p90={data.breakeven.p90}
-                />
-              )}
-              <SiteTable data={data} />
-              <Standing data={data} />
-            </>
-          )}
-
-          <footer
-            style={{
-              marginTop: "var(--s8)",
-              paddingTop: "var(--s5)",
-              borderTop: "1px solid var(--line)",
-              fontSize: "var(--fs-micro)",
-              color: "var(--text-muted)",
-              lineHeight: 1.7,
-            }}
-          >
-            DanJohn&ndash;Nwobi Gas Allocation Model, working version.
-            {data && (
-              <>
-                {" "}Parameter set {data.set_id}, seed {data.seed}, {data.draws.toLocaleString()} Latin
-                Hypercube draws. Cite the set id and seed with any figure taken from this tool.
-              </>
+            {error && (
+              <div
+                className="djn-card djn-squircle-sm"
+                style={{
+                  padding: "var(--s5)",
+                  borderColor: "color-mix(in srgb,var(--status-error) 45%,transparent)",
+                }}
+              >
+                <p className="djn-eyebrow" style={{ color: "var(--status-error)" }}>
+                  The engine is not reachable
+                </p>
+                <p style={{ fontSize: "var(--fs-sm)", marginTop: 8, color: "var(--text-secondary)" }}>
+                  {error}
+                </p>
+              </div>
             )}
-          </footer>
-        </div>
-      </main>
 
-      {/* Always visible on narrow screens, never scrolled away. */}
-      <nav className="djn-mobile-switch" aria-label="Switch pane">
-        <button onClick={() => setPane("inputs")} aria-pressed={pane === "inputs"}>
-          Inputs
-        </button>
-        <button onClick={() => setPane("results")} aria-pressed={pane === "results"}>
-          Results
-        </button>
-      </nav>
-    </div>
-  );
-}
+            {data ? (
+              <>
+                <Verdict data={data} />
+                <ChainDiagram data={data} />
+                <NetbackChart data={data} />
+                <BreakevenPanel data={data} />
+                {data.samples && (
+                  <Distribution
+                    samples={data.samples.breakeven}
+                    p10={data.breakeven.p10}
+                    p50={data.breakeven.p50}
+                    p90={data.breakeven.p90}
+                  />
+                )}
+                <SiteTable data={data} />
+                <Method />
+                <Standing data={data} />
+              </>
+            ) : (
+              !error && (
+                <>
+                  <Skeleton height={210} />
+                  <Skeleton height={180} />
+                  <Skeleton height={240} />
+                </>
+              )
+            )}
 
-/**
- * The verdict.
- *
- * One sentence and one number, because a decision-support tool should answer
- * before it explains. Everything below this block is the working.
- */
-function Verdict({ data }: { data: ScenarioResponse }) {
-  const winner = data.netback.find((n) => n.key === data.winner);
-  const runnerUp = data.netback[1];
-  if (!winner) return null;
-
-  const margin = runnerUp ? winner.value / runnerUp.value : 1;
-
-  return (
-    <motion.section
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="djn-card djn-squircle-lg"
-      style={{ padding: "var(--s8) var(--s6)", background: "var(--bg-secondary)" }}
-    >
-      <p className="djn-eyebrow djn-eyebrow--accent">The answer</p>
-
-      <p
-        className="djn-display"
-        style={{ fontSize: "var(--fs-display-2xl)", marginTop: "var(--s4)" }}
-      >
-        <CountUp value={winner.value} decimals={2} prefix="$" />
-      </p>
-      <p className="djn-data-label" style={{ marginTop: 6 }}>
-        per MMBtu as {winner.label.toLowerCase()}
-      </p>
-
-      <p
-        style={{
-          fontSize: "var(--fs-lead)",
-          color: "var(--text-secondary)",
-          marginTop: "var(--s5)",
-          maxWidth: "58ch",
-          lineHeight: 1.6,
-        }}
-      >
-        {winner.key === "compute" ? (
-          <>
-            Compute out-earns every other use of the same gas, by{" "}
-            <strong style={{ color: "var(--text-primary)", fontWeight: 700 }}>
-              {margin.toFixed(1)} times
-            </strong>{" "}
-            over {runnerUp?.label.toLowerCase()}. It stops winning below{" "}
-            {money(data.breakeven.point)} per accelerator-hour.
-          </>
-        ) : (
-          <>
-            {winner.label} earns most at these settings. Compute would need{" "}
-            {money(data.breakeven.point)} per accelerator-hour to overtake it.
-          </>
-        )}
-      </p>
-    </motion.section>
-  );
-}
-
-/**
- * What the model does not yet know, stated rather than discovered.
- */
-function Standing({ data }: { data: ScenarioResponse }) {
-  const objectives = [
-    { n: 1, text: "Value gas across four pathways and establish the break-even", done: true },
-    { n: 2, text: "Levelised cost of compute-grade electricity by site", done: true },
-    { n: 3, text: "Opportunity cost in connections and agro-capacity", done: false },
-    { n: 4, text: "Carbon intensity by gas-supply pathway", done: false },
-    { n: 5, text: "Open, accessible tool and regulatory implications", done: false },
-  ];
-
-  return (
-    <div className="djn-card djn-squircle" style={{ padding: "var(--s6)" }}>
-      <p className="djn-eyebrow djn-eyebrow--accent">Standing</p>
-      <h2 className="djn-title" style={{ fontSize: "var(--fs-h2)", marginTop: 4 }}>
-        What is built, and what is not
-      </h2>
-
-      <ul style={{ marginTop: "var(--s5)", display: "flex", flexDirection: "column", gap: "var(--s3)" }}>
-        {objectives.map((o) => (
-          <li key={o.n} className="flex items-start gap-3">
-            <span
-              className="djn-data-label"
-              style={{ width: 18, flexShrink: 0, paddingTop: 2, color: "var(--text-muted)" }}
-            >
-              {o.n}
-            </span>
-            <span
+            <footer
               style={{
-                fontSize: "var(--fs-sm)",
-                color: o.done ? "var(--text-primary)" : "var(--text-tertiary)",
-                flex: 1,
+                marginTop: "var(--s8)",
+                paddingTop: "var(--s6)",
+                borderTop: "1px solid var(--line)",
+                fontSize: "var(--fs-micro)",
+                color: "var(--text-muted)",
+                lineHeight: 1.8,
               }}
             >
-              {o.text}
-            </span>
-            <span className="djn-chip" data-prov={o.done ? "sourced" : "derived"}>
-              {o.done ? "Built" : "Scheduled"}
-            </span>
-          </li>
-        ))}
-      </ul>
+              <strong style={{ color: "var(--text-secondary)" }}>
+                DanJohn&ndash;Nwobi Gas Allocation Model
+              </strong>
+              , working version. Daniel Dan-John, M.Sc. Energy Economics, CPEEL, University of
+              Ibadan. Supervisor: Dr. Dilinna Lucy Nwobi.
+              {data && (
+                <>
+                  <br />
+                  Parameter set {data.set_id}, seed {data.seed},{" "}
+                  {data.draws.toLocaleString()} Latin Hypercube draws. Cite the set id and seed with
+                  any figure taken from this tool.
+                </>
+              )}
+            </footer>
+          </div>
+        </main>
+      </div>
 
-      <p
-        style={{
-          fontSize: "var(--fs-micro)",
-          color: "var(--text-muted)",
-          marginTop: "var(--s5)",
-          paddingTop: "var(--s4)",
-          borderTop: "1px solid var(--line)",
-          lineHeight: 1.6,
-        }}
+      {/* mobile sheet controls */}
+      <div className="djn-scrim" data-open={sheet} onClick={() => setSheet(false)} aria-hidden="true" />
+      <button
+        className="djn-btn djn-btn--accent djn-sheet-trigger"
+        onClick={() => setSheet((s) => !s)}
+        aria-expanded={sheet}
+        style={{ padding: "13px 24px" }}
       >
-        Objectives 3 and 4 are scheduled for October and November 2026 in the project Gantt. Every
-        unsourced input is tagged in the panel on the left; none of the figures above should be quoted
-        as a finding until those are replaced. Parameter set {data.set_id}.
-      </p>
-    </div>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="9" cy="7" r="2.4" fill="currentColor" />
+          <circle cx="15" cy="12" r="2.4" fill="currentColor" />
+          <circle cx="8" cy="17" r="2.4" fill="currentColor" />
+        </svg>
+        {sheet ? "Close" : "Adjust assumptions"}
+      </button>
+
+      {tour.active && <Walkthrough onClose={tour.stop} />}
+    </>
   );
 }

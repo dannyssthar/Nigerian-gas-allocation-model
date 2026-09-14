@@ -3,21 +3,105 @@
 import { motion } from "framer-motion";
 import type { ScenarioResponse } from "@/lib/api";
 import { money, num, pct } from "@/lib/api";
-import { CountUp, ProvenanceChip } from "./Primitives";
+import { CountUp, ProvenanceChip, SectionHead } from "./Primitives";
+import { Info, Term, Unit } from "./Tooltip";
 
-/* ══════════════════════════════════════════════════════════════════
-   NETBACK
-   ══════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   VERDICT
+   ════════════════════════════════════════════════════════════════════ */
 
 /**
- * The four pathways on one scale.
+ * The answer, before any working.
  *
- * Bars are monochrome and the winner is distinguished by ink weight, not by
- * hue: colour-coding four categories would turn the chart into a rainbow and
- * break the discipline that makes the rest of the page read as one thing. The
- * gold whisker over each bar is the P10 to P90 range, and it is the only place
- * the accent appears in this component, because the uncertainty is the part
- * most readers would otherwise miss.
+ * A decision-support tool that makes the reader scroll to find the conclusion
+ * has failed at the thing it is named for. One number, one sentence, then the
+ * evidence beneath it.
+ */
+export function Verdict({ data }: { data: ScenarioResponse }) {
+  const winner = data.netback.find((n) => n.key === data.winner);
+  const runnerUp = data.netback[1];
+  if (!winner) return null;
+
+  const margin = runnerUp && runnerUp.value !== 0 ? winner.value / runnerUp.value : 1;
+
+  return (
+    <section
+      id="overview"
+      className="djn-card djn-squircle-lg djn-section djn-card--raised"
+      data-tour="verdict"
+      style={{
+        padding: "var(--s10) var(--s6)",
+        background: "var(--bg-secondary)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <p className="djn-eyebrow djn-eyebrow--accent">The answer</p>
+
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--s4)", flexWrap: "wrap", marginTop: "var(--s4)" }}>
+        <p className="djn-display" style={{ fontSize: "var(--fs-display-2xl)" }}>
+          <CountUp value={winner.value} decimals={2} prefix="$" />
+        </p>
+        <p className="djn-data-label">
+          per <Unit k="MMBtu" />, as {winner.label.toLowerCase()}
+        </p>
+      </div>
+
+      <p
+        className="djn-measure"
+        style={{ fontSize: "var(--fs-lead)", color: "var(--text-secondary)", marginTop: "var(--s5)", lineHeight: 1.7 }}
+      >
+        {winner.key === "compute" ? (
+          <>
+            At these assumptions, running AI compute earns more from the same gas than any other
+            use, by{" "}
+            <strong style={{ color: "var(--accent-text)", fontWeight: 750 }}>
+              {margin.toFixed(1)} times
+            </strong>{" "}
+            over {runnerUp?.label.toLowerCase()}. It stops winning below{" "}
+            <strong style={{ color: "var(--text-primary)" }}>{money(data.breakeven.point)}</strong>{" "}
+            per <Term k="acceleratorHour">accelerator-hour</Term>.
+          </>
+        ) : (
+          <>
+            At these assumptions, {winner.label.toLowerCase()} earns most from the gas. Compute
+            would need{" "}
+            <strong style={{ color: "var(--accent-text)" }}>{money(data.breakeven.point)}</strong>{" "}
+            per <Term k="acceleratorHour">accelerator-hour</Term> to overtake it.
+          </>
+        )}
+      </p>
+
+      <p
+        style={{
+          fontSize: "var(--fs-micro)",
+          color: "var(--text-tertiary)",
+          marginTop: "var(--s6)",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          flexWrap: "wrap",
+        }}
+      >
+        <ProvenanceChip kind="working" />
+        Most inputs behind this figure are placeholders, not evidence. Treat it as a demonstration
+        of the method until they are sourced.
+        <Info k="provenance" />
+      </p>
+    </section>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   NETBACK
+   ════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Four pathways on one scale.
+ *
+ * The winner is the only bar in lime; the rest are grey. Colour-coding four
+ * categories would turn this into a rainbow and destroy the one thing the
+ * chart is for, which is seeing which bar is longest.
  */
 export function NetbackChart({ data }: { data: ScenarioResponse }) {
   const max = Math.max(...data.netback.map((n) => Math.max(n.value, n.p90)));
@@ -26,39 +110,52 @@ export function NetbackChart({ data }: { data: ScenarioResponse }) {
   const x = (v: number) => ((v - min) / span) * 100;
 
   return (
-    <div className="djn-card djn-squircle" style={{ padding: "var(--s6)" }}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <p className="djn-eyebrow djn-eyebrow--accent">Netback</p>
-          <h2 className="djn-title" style={{ fontSize: "var(--fs-h2)", marginTop: 4 }}>
-            What one MMBtu earns down each path
-          </h2>
-        </div>
-        <p className="djn-data-label">US dollars per MMBtu at the wellhead</p>
-      </div>
+    <section id="netback" className="djn-card djn-squircle djn-section" data-tour="netback" style={{ padding: "var(--s6)" }}>
+      <SectionHead
+        eyebrow="Step two"
+        title="What that gas earns down each route"
+        glossary="netback"
+        explain={
+          <>
+            The same <Unit k="MMBtu" /> could go four ways. Each bar is what the gas itself is worth
+            at the wellhead once every downstream cost is paid, so the comparison is arithmetic
+            rather than argument. Longer is better.
+          </>
+        }
+        aside={
+          <span className="djn-data-label">
+            <Unit k="USDMMBtu" /> at the wellhead
+          </span>
+        }
+      />
 
-      <div style={{ marginTop: "var(--s6)", display: "flex", flexDirection: "column", gap: "var(--s4)" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--s5)" }}>
         {data.netback.map((row, i) => {
           const isWinner = row.key === data.winner;
           return (
-            <div key={row.key}>
-              <div className="flex items-baseline justify-between gap-3" style={{ marginBottom: 6 }}>
+            <div key={row.key} data-tour={i === 0 ? "whisker" : undefined}>
+              <div className="flex items-baseline justify-between gap-3" style={{ marginBottom: 7 }}>
                 <span
                   style={{
                     fontSize: "var(--fs-sm)",
-                    fontWeight: isWinner ? 700 : 560,
+                    fontWeight: isWinner ? 720 : 560,
                     color: isWinner ? "var(--text-primary)" : "var(--text-secondary)",
                   }}
                 >
                   {row.label}
+                  {isWinner && (
+                    <span className="djn-data-label" style={{ color: "var(--accent-text)", marginLeft: 8 }}>
+                      best use
+                    </span>
+                  )}
                 </span>
                 <span
                   className="tnum"
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: "var(--fs-sm)",
-                    fontWeight: 700,
-                    color: isWinner ? "var(--text-primary)" : "var(--text-secondary)",
+                    fontWeight: 720,
+                    color: isWinner ? "var(--accent-text)" : "var(--text-secondary)",
                   }}
                 >
                   {money(row.value)}
@@ -77,109 +174,144 @@ export function NetbackChart({ data }: { data: ScenarioResponse }) {
                 <span
                   className="djn-whisker"
                   aria-hidden="true"
-                  style={{ left: `${x(row.p10)}%`, width: `${x(row.p90) - x(row.p10)}%` }}
+                  style={{ left: `${x(row.p10)}%`, width: `${Math.max(x(row.p90) - x(row.p10), 0)}%` }}
                 />
               </div>
 
-              <p className="djn-data-label" style={{ marginTop: 5 }}>
-                P10 {money(row.p10)} &middot; P50 {money(row.p50)} &middot; P90 {money(row.p90)}
+              <p className="djn-data-label" style={{ marginTop: 6 }}>
+                <Unit k="percentiles">P10</Unit> {money(row.p10)} &middot; P50 {money(row.p50)}{" "}
+                &middot; P90 {money(row.p90)}
               </p>
             </div>
           );
         })}
       </div>
 
-      <p
-        style={{
-          fontSize: "var(--fs-micro)",
-          color: "var(--text-muted)",
-          marginTop: "var(--s5)",
-          paddingTop: "var(--s4)",
-          borderTop: "1px solid var(--line)",
-          lineHeight: 1.6,
-        }}
-      >
-        The gold bracket on each bar is the P10 to P90 range across {data.draws.toLocaleString()}{" "}
-        Latin Hypercube draws. Regulated gas price for the power sector is {money(data.gas_price_power)} per
-        MMBtu, so a pathway only clears if its netback sits above that line.
+      <p className="djn-note">
+        <strong style={{ color: "var(--text-primary)" }}>How to read the bracket.</strong> The thin
+        bracket across each bar is the range across {data.draws.toLocaleString()}{" "}
+        <Unit k="LHSabbr" /> runs, not an error bar. A wide bracket means the result depends heavily
+        on assumptions you can change on the left. The regulated gas price for power is{" "}
+        {money(data.gas_price_power)} per <Unit k="MMBtu" />, so a route only makes sense at all if
+        its bar clears that.
       </p>
-    </div>
+    </section>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════════
    BREAK-EVEN
-   ══════════════════════════════════════════════════════════════════ */
+   ════════════════════════════════════════════════════════════════════ */
 
 /**
- * The break-even, and the finding underneath it.
+ * The break-even, and the policy finding underneath it.
  *
- * The headline is not the break-even price itself but the gap between it and
- * the cash cost of running the accelerator, because that gap IS the value of
- * the gas. When it is small, gas pricing cannot steer siting, which is the
- * study's central policy result.
+ * The headline number is not the break-even but the gap between it and the
+ * cash cost of the chip, because that gap is what the gas is actually worth.
+ * When it is small, gas pricing cannot steer siting, and that is the study's
+ * central result.
  */
 export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
   const b = data.breakeven;
   const gasShare = b.cash_cost > 0 ? b.gas_opportunity_cost / b.cash_cost : 0;
 
   return (
-    <div className="djn-card djn-squircle" style={{ padding: "var(--s6)" }}>
-      <p className="djn-eyebrow djn-eyebrow--accent">Break-even</p>
-      <h2 className="djn-title" style={{ fontSize: "var(--fs-h2)", marginTop: 4 }}>
-        Where compute stops winning
-      </h2>
+    <section id="breakeven" className="djn-card djn-squircle djn-section" data-tour="breakeven" style={{ padding: "var(--s6)" }}>
+      <SectionHead
+        eyebrow="Step three"
+        title="Where the answer flips"
+        glossary="breakeven"
+        explain={
+          <>
+            Compute only wins while the price of computing stays high enough. This is the price at
+            which it stops, found by solving rather than by trial and error, inside every one of the
+            uncertainty runs.
+          </>
+        }
+      />
 
-      <div style={{ marginTop: "var(--s6)", display: "flex", alignItems: "baseline", gap: "var(--s3)", flexWrap: "wrap" }}>
-        <p className="djn-display" style={{ fontSize: "var(--fs-display-xl)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--s3)", flexWrap: "wrap" }}>
+        <p className="djn-display" style={{ fontSize: "var(--fs-display-xl)", color: "var(--accent-text)" }}>
           <CountUp value={b.point} decimals={2} prefix="$" />
         </p>
-        <p className="djn-data-label">per accelerator-hour</p>
+        <p className="djn-data-label">
+          per <Unit k="acceleratorHour">accelerator-hour</Unit>
+        </p>
       </div>
 
-      <p style={{ fontSize: "var(--fs-sm)", color: "var(--text-secondary)", marginTop: "var(--s3)", maxWidth: "52ch" }}>
-        Below this price, the gas earns more as {data.netback[1]?.label.toLowerCase() ?? "another use"}.
-        Across the uncertainty the break-even runs {money(b.p10)} to {money(b.p90)}.
+      <p className="djn-explain" style={{ marginTop: "var(--s3)" }}>
+        Across the uncertainty this runs from {money(b.p10)} to {money(b.p90)}. Below it, the gas is
+        worth more as something else.
       </p>
 
       <div
         style={{
-          marginTop: "var(--s6)",
-          paddingTop: "var(--s5)",
+          marginTop: "var(--s8)",
+          paddingTop: "var(--s6)",
           borderTop: "1px solid var(--line)",
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
-          gap: "var(--s5)",
+          gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))",
+          gap: "var(--s6)",
         }}
       >
-        <Metric label="Cash cost of the chip" value={b.cash_cost} dp={4} prefix="$" caption="Capital plus operating, per accelerator-hour" />
-        <Metric label="Value of the gas" value={b.gas_opportunity_cost} dp={4} prefix="$" caption={`${pct(gasShare, 1)} of the cost of running the accelerator`} accent />
-        <Metric label="Compute ranks first" value={data.compute_ranks_first_share * 100} dp={1} suffix="%" caption={`Of ${data.draws.toLocaleString()} draws`} />
+        <Metric
+          label="Cost of running the chip"
+          value={b.cash_cost}
+          dp={4}
+          prefix="$"
+          caption="Capital and operating cost per accelerator-hour, before any gas is bought"
+          glossary="crf"
+        />
+        <Metric
+          label="Value of the gas"
+          value={b.gas_opportunity_cost}
+          dp={4}
+          prefix="$"
+          caption={`${pct(gasShare, 1)} of the cost of running the accelerator`}
+          glossary="opportunityCost"
+          accent
+        />
+        <Metric
+          label="Compute wins in"
+          value={data.compute_ranks_first_share * 100}
+          dp={1}
+          suffix="%"
+          caption={`Of ${data.draws.toLocaleString()} runs across the full range of assumptions`}
+          glossary="lhs"
+        />
       </div>
 
       {gasShare < 0.1 && (
-        <motion.p
-          initial={{ opacity: 0, y: 6 }}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
           style={{
-            marginTop: "var(--s5)",
-            padding: "var(--s4)",
-            borderLeft: "2px solid var(--brand-accent)",
-            background: "var(--bg-secondary)",
-            fontSize: "var(--fs-sm)",
-            color: "var(--text-secondary)",
-            lineHeight: 1.6,
-            borderRadius: "0 var(--r-sm) var(--r-sm) 0",
+            marginTop: "var(--s6)",
+            padding: "var(--s5)",
+            borderLeft: "2px solid var(--accent-graphic)",
+            background: "var(--accent-wash)",
+            borderRadius: "0 var(--r-md) var(--r-md) 0",
           }}
         >
-          The whole opportunity cost of the gas is {money(b.gas_opportunity_cost, 4)} per accelerator-hour,
-          under {pct(gasShare, 0)} of what the machine costs to run. At this scale the gas price is not a
-          lever: moving it across the regulated band barely moves a developer&rsquo;s decision. If Nigeria wants
-          to shape where this load lands, licensing conditions and siting rules do the work that pricing cannot.
-        </motion.p>
+          <p className="djn-eyebrow djn-eyebrow--accent">What this means</p>
+          <p
+            style={{
+              fontSize: "var(--fs-sm)",
+              color: "var(--text-secondary)",
+              lineHeight: 1.7,
+              marginTop: "var(--s3)",
+            }}
+          >
+            The gas is worth {money(b.gas_opportunity_cost, 4)} per accelerator-hour, under{" "}
+            {pct(gasShare, 0)} of what the machine costs to run. At that scale the gas price is not
+            a lever: moving it across the whole regulated band barely changes a developer&rsquo;s
+            decision. If Nigeria wants to shape where this load lands, licensing conditions,
+            embedded-generation obligations and siting rules do the work that pricing cannot.
+          </p>
+        </motion.div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -190,6 +322,7 @@ function Metric({
   prefix = "",
   suffix = "",
   caption,
+  glossary,
   accent = false,
 }: {
   label: string;
@@ -198,37 +331,43 @@ function Metric({
   prefix?: string;
   suffix?: string;
   caption: string;
+  glossary?: Parameters<typeof Info>[0]["k"];
   accent?: boolean;
 }) {
   return (
     <div>
-      <p className="djn-eyebrow" style={{ marginBottom: 8 }}>
+      <p className="djn-eyebrow" style={{ marginBottom: 9, display: "flex", alignItems: "center" }}>
         {label}
+        {glossary && <Info k={glossary} />}
       </p>
       <p
         className="djn-display"
-        style={{ fontSize: "1.4rem", color: accent ? "var(--accent-text)" : "var(--text-primary)" }}
+        style={{ fontSize: "1.45rem", color: accent ? "var(--accent-text)" : "var(--text-primary)" }}
       >
         <CountUp value={value} decimals={dp} prefix={prefix} suffix={suffix} />
       </p>
-      <p style={{ fontSize: "var(--fs-micro)", color: "var(--text-muted)", marginTop: 4, lineHeight: 1.5 }}>
+      <p style={{ fontSize: "var(--fs-micro)", color: "var(--text-muted)", marginTop: 6, lineHeight: 1.6 }}>
         {caption}
       </p>
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════════
    DISTRIBUTION
-   ══════════════════════════════════════════════════════════════════ */
+   ════════════════════════════════════════════════════════════════════ */
 
-/**
- * Histogram of the break-even across draws.
- *
- * Document 2 promises the study reports a spread rather than a single figure.
- * This is that promise made visible: the shape, not just the percentiles.
- */
-export function Distribution({ samples, p10, p50, p90 }: { samples: number[]; p10: number; p50: number; p90: number }) {
+export function Distribution({
+  samples,
+  p10,
+  p50,
+  p90,
+}: {
+  samples: number[];
+  p10: number;
+  p50: number;
+  p90: number;
+}) {
   if (!samples?.length) return null;
 
   const bins = 34;
@@ -237,26 +376,30 @@ export function Distribution({ samples, p10, p50, p90 }: { samples: number[]; p1
   const width = (hi - lo) / bins || 1;
   const counts = new Array(bins).fill(0);
   samples.forEach((s) => {
-    const i = Math.min(bins - 1, Math.floor((s - lo) / width));
+    const i = Math.min(bins - 1, Math.max(0, Math.floor((s - lo) / width)));
     counts[i] += 1;
   });
   const peak = Math.max(...counts);
   const at = (v: number) => ((v - lo) / (hi - lo || 1)) * 100;
 
   return (
-    <div className="djn-card djn-squircle" style={{ padding: "var(--s6)" }}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <p className="djn-eyebrow djn-eyebrow--accent">Distribution</p>
-          <h2 className="djn-title" style={{ fontSize: "var(--fs-h2)", marginTop: 4 }}>
-            Break-even across the uncertainty
-          </h2>
-        </div>
-        <p className="djn-data-label">{samples.length} draws shown</p>
-      </div>
+    <section className="djn-card djn-squircle djn-section" style={{ padding: "var(--s6)" }}>
+      <SectionHead
+        eyebrow="The spread"
+        title="Every plausible answer at once"
+        glossary="percentiles"
+        explain={
+          <>
+            Each bar counts how many runs produced a break-even in that range. A tall narrow shape
+            means the answer is robust; a wide flat one means it depends on what you assume. This is
+            what reporting a range instead of a single figure actually looks like.
+          </>
+        }
+        aside={<span className="djn-data-label">{samples.length} runs shown</span>}
+      />
 
-      <div style={{ position: "relative", marginTop: "var(--s6)" }}>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 128 }}>
+      <div style={{ position: "relative", paddingTop: 18 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 132 }}>
           {counts.map((c, i) => (
             <motion.div
               key={i}
@@ -267,8 +410,8 @@ export function Distribution({ samples, p10, p50, p90 }: { samples: number[]; p1
                 flex: 1,
                 height: `${(c / peak) * 100}%`,
                 minHeight: c > 0 ? 2 : 0,
-                background: "var(--text-primary)",
-                opacity: 0.14 + 0.76 * (c / peak),
+                background: "var(--accent-graphic)",
+                opacity: 0.2 + 0.8 * (c / peak),
                 transformOrigin: "bottom",
                 borderRadius: "2px 2px 0 0",
               }}
@@ -283,12 +426,12 @@ export function Distribution({ samples, p10, p50, p90 }: { samples: number[]; p1
         ].map((m) => (
           <div
             key={m.label}
-            style={{ position: "absolute", top: 0, bottom: 0, left: `${at(m.v)}%`, pointerEvents: "none" }}
+            style={{ position: "absolute", top: 18, bottom: 0, left: `${at(m.v)}%`, pointerEvents: "none" }}
           >
-            <span style={{ display: "block", width: 1, height: "100%", background: "var(--brand-accent)", opacity: 0.7 }} />
+            <span style={{ display: "block", width: 1, height: "100%", background: "var(--text-primary)", opacity: 0.55 }} />
             <span
               className="djn-data-label"
-              style={{ position: "absolute", top: -16, left: 3, color: "var(--accent-text)", whiteSpace: "nowrap" }}
+              style={{ position: "absolute", top: -16, left: 3, color: "var(--text-secondary)", whiteSpace: "nowrap" }}
             >
               {m.label}
             </span>
@@ -298,69 +441,85 @@ export function Distribution({ samples, p10, p50, p90 }: { samples: number[]; p1
 
       <div className="flex justify-between" style={{ marginTop: "var(--s3)" }}>
         <span className="djn-data-label">{money(lo)}</span>
-        <span className="djn-data-label">US$ per accelerator-hour</span>
+        <span className="djn-data-label">break-even, US$ per accelerator-hour</span>
         <span className="djn-data-label">{money(hi)}</span>
       </div>
-    </div>
+    </section>
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   SITES
-   ══════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════
+   SITING
+   ════════════════════════════════════════════════════════════════════ */
 
-/**
- * Objective 2, on screen: the cost of compute-grade power by site.
- *
- * The table is deliberately a table. Six sites compared on five attributes is
- * exactly what a hairline ledger does well, and a map would look impressive
- * while making the comparison harder to read.
- */
 export function SiteTable({ data }: { data: ScenarioResponse }) {
   const sites = data.lcoe.sites;
   const cheapest = sites[0];
   const lagos = sites.find((s) => s.key === "lagos");
   const premium =
-    lagos && cheapest
-      ? (lagos.lcoe_compute_usd_per_kwh / cheapest.lcoe_compute_usd_per_kwh - 1) * 100
-      : 0;
+    lagos && cheapest ? (lagos.lcoe_compute_usd_per_kwh / cheapest.lcoe_compute_usd_per_kwh - 1) * 100 : 0;
 
   return (
-    <div className="djn-card djn-squircle" style={{ padding: "var(--s6)", overflow: "hidden" }}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2" style={{ marginBottom: "var(--s5)" }}>
-        <div>
-          <p className="djn-eyebrow djn-eyebrow--accent">Siting</p>
-          <h2 className="djn-title" style={{ fontSize: "var(--fs-h2)", marginTop: 4 }}>
-            Cost of compute-grade power by site
-          </h2>
-        </div>
-        <ProvenanceChip kind="working" title="Site climate and flare distances are placeholders" />
-      </div>
+    <section id="siting" className="djn-card djn-squircle djn-section" style={{ padding: "var(--s6)" }}>
+      <SectionHead
+        eyebrow="Step four"
+        title="Where it would actually be cheapest"
+        glossary="computeGrade"
+        explain={
+          <>
+            The same generator at six Nigerian locations. Only two things change: how hard the
+            climate makes the cooling work, and whether cheap <Term k="flareGas">flare gas</Term> is
+            available. Everything else is held constant, so any difference in the ranking is siting
+            alone.
+          </>
+        }
+        aside={<ProvenanceChip kind="working" title="Site climate and flare distances are placeholders" />}
+      />
 
-      <div style={{ overflowX: "auto" }}>
+      <div className="djn-scroll-x">
         <table className="djn-table">
           <thead>
             <tr>
               <th>Site</th>
-              <th style={{ textAlign: "right" }}>PUE</th>
-              <th style={{ textAlign: "right" }}>Gas $/MMBtu</th>
-              <th style={{ textAlign: "right" }}>US cents/kWh</th>
-              <th style={{ textAlign: "right" }}>Fuel share</th>
+              <th style={{ textAlign: "right" }}>
+                <Unit k="PUEabbr" />
+              </th>
+              <th style={{ textAlign: "right" }}>
+                Gas <Unit k="USDMMBtu">US$/MMBtu</Unit>
+              </th>
+              <th style={{ textAlign: "right" }}>
+                <Unit k="centsKwh">US cents/kWh</Unit>
+              </th>
+              <th style={{ textAlign: "right" }}>
+                <Unit k="fuelShare">Fuel share</Unit>
+              </th>
               <th>Gas access</th>
               <th style={{ textAlign: "right" }}>Flare km</th>
               <th>Fibre</th>
             </tr>
           </thead>
           <tbody>
-            {sites.map((s) => (
-              <tr key={s.key}>
-                <td style={{ fontWeight: 640 }}>
+            {sites.map((s, i) => (
+              <tr key={s.key} data-best={i === 0}>
+                <td style={{ fontWeight: 650, whiteSpace: "nowrap" }}>
                   {s.name}
                   <span style={{ color: "var(--text-muted)", fontWeight: 400 }}> &middot; {s.state}</span>
                 </td>
-                <td className="tnum" style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>{num(s.pue, 3)}</td>
-                <td className="tnum" style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>{num(s.gas_price_applied, 2)}</td>
-                <td className="tnum" style={{ textAlign: "right", fontFamily: "var(--font-mono)", fontWeight: 700 }}>
+                <td className="tnum" style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                  {num(s.pue, 3)}
+                </td>
+                <td className="tnum" style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}>
+                  {num(s.gas_price_applied, 2)}
+                </td>
+                <td
+                  className="tnum"
+                  style={{
+                    textAlign: "right",
+                    fontFamily: "var(--font-mono)",
+                    fontWeight: 720,
+                    color: i === 0 ? "var(--accent-text)" : "var(--text-primary)",
+                  }}
+                >
                   {num(s.lcoe_compute_us_cents_per_kwh, 2)}
                 </td>
                 <td className="tnum" style={{ textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--text-tertiary)" }}>
@@ -377,27 +536,19 @@ export function SiteTable({ data }: { data: ScenarioResponse }) {
         </table>
       </div>
 
-      <p
-        style={{
-          fontSize: "var(--fs-micro)",
-          color: "var(--text-muted)",
-          marginTop: "var(--s5)",
-          paddingTop: "var(--s4)",
-          borderTop: "1px solid var(--line)",
-          lineHeight: 1.6,
-        }}
-      >
+      <p className="djn-note">
+        <strong style={{ color: "var(--text-primary)" }}>The mismatch.</strong>{" "}
         {lagos && premium > 0 && (
           <>
-            Lagos holds 21 of Nigeria&rsquo;s 28 facilities and is {num(premium, 0)} per cent dearer for
-            compute-grade power than {cheapest.name}. The cheap power sits where the flare gas is and the
-            fibre is not.{" "}
+            Lagos holds 21 of Nigeria&rsquo;s 28 data centres and is {num(premium, 0)} per cent
+            dearer for compute-grade power than {cheapest.name}. The cheap power sits where the
+            flare gas is, and the fibre does not.{" "}
           </>
         )}
-        Busbar gas comes to {money(data.lcoe.busbar_usd_per_mwh)} per MWh against{" "}
-        {money(data.lcoe.solar_battery_benchmark_usd_per_mwh)} for solar plus battery (Uranbold and Lima,
-        2025), which is the reliability premium that paper identifies.
+        Gas generation costs {money(data.lcoe.busbar_usd_per_mwh)} per <Unit k="MWh" /> at the
+        busbar against {money(data.lcoe.solar_battery_benchmark_usd_per_mwh)} for solar plus
+        battery (Uranbold and Lima, 2025), which is the reliability premium that paper identifies.
       </p>
-    </div>
+    </section>
   );
 }

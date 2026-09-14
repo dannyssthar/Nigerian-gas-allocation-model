@@ -1,26 +1,29 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useEffect, useRef } from "react";
 import type { ScenarioResponse } from "@/lib/api";
 import { num } from "@/lib/api";
-import { CountUp } from "./Primitives";
+import { CountUp, SectionHead } from "./Primitives";
+import { Info, Unit } from "./Tooltip";
+
+if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
 
 /**
- * The gas-to-compute chain from Document 2, drawn.
+ * The conversion chain, from Document 2.
  *
- * This exists because a reader trusts a number they can watch being built. The
- * four stages are the same four conversions the document sets out in prose, so
- * the screen and the document can never drift apart, and an examiner can check
- * one against the other in a few seconds.
+ * A reader trusts a number they can watch being built. These are the same four
+ * conversions the document sets out in prose, so the screen and the document
+ * can be checked against each other in seconds.
  *
- * The connecting flow is animated once on mount with GSAP, not on every value
- * change. Motion that fires on each recompute would compete with the numbers
- * for attention; the numbers are what changed, so they count up and the
- * scaffolding stays still. One orchestrated moment, not scattered effects.
+ * The connectors draw themselves once, on scroll, using stroke-dashoffset.
+ * Animating the flow rather than fading in the boxes makes the direction of
+ * the process legible without a single arrowhead needing explanation.
  */
 export default function ChainDiagram({ data }: { data: ScenarioResponse }) {
   const root = useRef<HTMLDivElement>(null);
+  const c = data.chain;
 
   useEffect(() => {
     const el = root.current;
@@ -28,106 +31,123 @@ export default function ChainDiagram({ data }: { data: ScenarioResponse }) {
     if (window.matchMedia("(prefers-reduced-motion:reduce)").matches) return;
 
     const ctx = gsap.context(() => {
-      gsap.from(".djn-stage", {
-        opacity: 0,
-        y: 14,
-        duration: 0.6,
-        stagger: 0.09,
-        ease: "power3.out",
+      const tl = gsap.timeline({
+        scrollTrigger: { trigger: el, start: "top 78%", once: true },
       });
-      gsap.from(".djn-flow", {
-        scaleX: 0,
-        transformOrigin: "left center",
-        duration: 0.5,
-        stagger: 0.09,
-        delay: 0.16,
-        ease: "power2.inOut",
-      });
+      tl.from(".djn-stage", { opacity: 0, y: 16, duration: 0.6, stagger: 0.1, ease: "power3.out" })
+        .fromTo(
+          ".djn-flow-path",
+          { strokeDashoffset: 100 },
+          { strokeDashoffset: 0, duration: 0.55, stagger: 0.1, ease: "power2.inOut" },
+          "-=0.5"
+        );
     }, el);
 
     return () => ctx.revert();
   }, []);
 
-  const c = data.chain;
   const stages = [
     {
-      label: "Gas",
+      label: "Gas in",
       value: 1,
       dp: 2,
-      unit: "MMBtu",
-      caption: "One unit of Nigerian natural gas",
+      unit: <Unit k="MMBtu" />,
+      caption: "One unit of Nigerian natural gas, the thing being allocated.",
     },
     {
       label: "Electricity",
       value: c.electricity_kwh,
       dp: 2,
-      unit: "kWh",
-      caption: "Combined-cycle turbine at the stated heat rate",
+      unit: <Unit k="kWh" />,
+      caption: "Burned in a combined-cycle turbine. A better turbine yields more from the same gas.",
     },
     {
-      label: "Compute-grade",
+      label: "Reaches the chips",
       value: c.compute_grade_kwh,
       dp: 2,
-      unit: "kWh",
-      caption: `${num(c.overhead_kwh, 2)} kWh goes to cooling and overhead`,
+      unit: <Unit k="kWh" />,
+      caption: `${num(c.overhead_kwh, 2)} kWh never gets there: it runs cooling, power conversion and lighting.`,
     },
     {
-      label: "Compute",
+      label: "Compute bought",
       value: c.accelerator_hours,
       dp: 2,
-      unit: "accelerator-hours",
-      caption: `At ${num(c.draw_kwh_per_accelerator_hour, 2)} kWh per accelerator-hour`,
+      unit: <Unit k="acceleratorHour">accelerator-hours</Unit>,
+      caption: `Each accelerator-hour draws ${num(c.draw_kwh_per_accelerator_hour, 2)} kWh at the current settings.`,
+      final: true,
     },
   ];
 
   return (
-    <div ref={root} className="djn-card djn-squircle" style={{ padding: "var(--s6)" }}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2" style={{ marginBottom: "var(--s6)" }}>
-        <div>
-          <p className="djn-eyebrow djn-eyebrow--accent">The conversion</p>
-          <h2 className="djn-title" style={{ fontSize: "var(--fs-h2)", marginTop: 4 }}>
-            What one MMBtu of gas becomes
-          </h2>
-        </div>
-        <p className="djn-data-label">Document 2 &middot; section 2</p>
-      </div>
+    <section
+      ref={root}
+      id="conversion"
+      className="djn-card djn-squircle djn-section"
+      data-tour="chain"
+      style={{ padding: "var(--s6)" }}
+    >
+      <SectionHead
+        eyebrow="Step one"
+        title="What one unit of gas becomes"
+        explain={
+          <>
+            Before any money is involved, the physics. Gas burns to make electricity, some of that
+            electricity runs cooling rather than chips, and whatever reaches the chips buys{" "}
+            <Unit k="acceleratorHour">accelerator-hours</Unit>. This is the conversion everything
+            else on the page rests on.
+          </>
+        }
+        aside={<span className="djn-data-label">Document 2 &middot; section 2</span>}
+      />
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
-          gap: "var(--s4)",
+          gridTemplateColumns: "repeat(auto-fit,minmax(165px,1fr))",
+          gap: "var(--s5)",
+          alignItems: "start",
         }}
       >
         {stages.map((s, i) => (
-          <div key={s.label} className="djn-stage" style={{ position: "relative" }}>
+          <div key={s.label} className="djn-stage" style={{ position: "relative", minWidth: 0 }}>
             {i > 0 && (
-              <span
-                className="djn-flow"
+              <svg
                 aria-hidden="true"
+                width="20"
+                height="10"
+                viewBox="0 0 20 10"
                 style={{
                   position: "absolute",
-                  left: "calc(var(--s4) * -1)",
-                  top: 26,
-                  width: "var(--s4)",
-                  height: 1,
-                  background: "var(--line-strong)",
+                  left: "calc(var(--s5) * -1)",
+                  top: 24,
+                  width: "var(--s5)",
+                  overflow: "visible",
                 }}
-              />
+              >
+                <path
+                  className="djn-flow-path"
+                  d="M0 5 H20"
+                  stroke="var(--accent-graphic)"
+                  strokeWidth="1.5"
+                  strokeDasharray="100"
+                  fill="none"
+                />
+              </svg>
             )}
-            <p className="djn-eyebrow" style={{ marginBottom: 6 }}>
+
+            <p className="djn-eyebrow" style={{ marginBottom: 8 }}>
               {s.label}
             </p>
             <p
               className="djn-display"
               style={{
-                fontSize: "1.75rem",
-                color: i === 3 ? "var(--text-primary)" : "var(--text-secondary)",
+                fontSize: "1.7rem",
+                color: s.final ? "var(--accent-text)" : "var(--text-primary)",
               }}
             >
               <CountUp value={s.value} decimals={s.dp} />
             </p>
-            <p className="djn-data-label" style={{ marginTop: 2 }}>
+            <p className="djn-data-label" style={{ marginTop: 4 }}>
               {s.unit}
             </p>
             <p
@@ -135,7 +155,7 @@ export default function ChainDiagram({ data }: { data: ScenarioResponse }) {
                 fontSize: "var(--fs-micro)",
                 color: "var(--text-muted)",
                 marginTop: "var(--s3)",
-                lineHeight: 1.5,
+                lineHeight: 1.6,
               }}
             >
               {s.caption}
@@ -143,6 +163,14 @@ export default function ChainDiagram({ data }: { data: ScenarioResponse }) {
           </div>
         ))}
       </div>
-    </div>
+
+      <p className="djn-note">
+        Move <strong style={{ color: "var(--text-primary)" }}>turbine heat rate</strong> or{" "}
+        <Unit k="PUEabbr" /> in the panel of assumptions and watch this chain change. A hotter site
+        needs more cooling, which lifts <Unit k="PUEabbr" /> and leaves less electricity for the
+        chips.
+        <Info k="pue" />
+      </p>
+    </section>
   );
 }
