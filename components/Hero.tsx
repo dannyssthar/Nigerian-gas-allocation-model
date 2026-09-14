@@ -2,6 +2,7 @@
 
 import gsap from "gsap";
 import { useEffect, useRef } from "react";
+import GridStars from "./GridStars";
 import { Term } from "./Tooltip";
 
 /**
@@ -58,6 +59,7 @@ export default function Hero({ onStart }: { onStart: () => void }) {
   return (
     <section ref={root} className="djn-hero" id="top">
       <div className="djn-hero__grid" aria-hidden="true" />
+      <GridStars />
 
       <div style={{ maxWidth: 1080, marginInline: "auto", width: "100%", position: "relative" }}>
         <p className="djn-eyebrow djn-eyebrow--accent djn-hero__eyebrow">
