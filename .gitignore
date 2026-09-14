@@ -1,0 +1,52 @@
+# ── Node / Next.js ──────────────────────────────────────────────
+node_modules/
+.next/
+out/
+build/
+.swc/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Python ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Environment and secrets ─────────────────────────────────────
+# Never commit these. Live price-feed keys will live here later.
+.env
+.env.local
+.env.*.local
+
+# ── Deployment ──────────────────────────────────────────────────
+.vercel
+
+# ── Editors ─────────────────────────────────────────────────────
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# ── Operating system ────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# ── Model output ────────────────────────────────────────────────
+# Generated runs are reproducible from a parameter set id and a seed,
+# so they do not belong in version control. PARAMETERS.md is the one
+# exception: it is the provenance audit and SHOULD be committed.
+runs/
+*.csv
+!engine/data/*.csv
