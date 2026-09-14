@@ -1,6 +1,19 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
   "functions": {
-    "api/index.py": { "runtime": "python3.12", "maxDuration": 30 }
+    "api/index.py": {
+      "//": "engine/ lives outside api/, so Vercel would not bundle it and the import would fail at runtime. includeFiles pulls the package in.",
+      "includeFiles": "engine/**",
+      "maxDuration": 30,
+      "memory": 1024
+    }
   },
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }]
+
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    }
+  ]
 }

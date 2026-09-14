@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { GLOSSARY } from "@/lib/glossary";
 
 type Placement = "top" | "bottom";
@@ -98,6 +99,26 @@ function useTip() {
   };
 }
 
+/**
+ * Renders into document.body once mounted.
+ *
+ * Two reasons, and the first is not optional. Triggers sit inside running
+ * prose, so a bubble rendered in place would put a <div> inside a <p>, which
+ * the HTML parser silently rewrites and React then flags as a hydration
+ * mismatch. Second, a portal escapes every ancestor's overflow and stacking
+ * context, so the bubble cannot be clipped by the scrolling site table or the
+ * mobile sheet.
+ *
+ * Returns null before mount because document does not exist during server
+ * rendering.
+ */
+function Portal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
+
 function Bubble({
   open,
   pos,
@@ -116,8 +137,9 @@ function Bubble({
   onLeave?: () => void;
 }) {
   return (
-    <AnimatePresence>
-      {open && (
+    <Portal>
+      <AnimatePresence>
+        {open && (
         <motion.div
           id={id}
           role="tooltip"
@@ -142,8 +164,9 @@ function Bubble({
           <strong>{title}</strong>
           {body}
         </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </Portal>
   );
 }
 
