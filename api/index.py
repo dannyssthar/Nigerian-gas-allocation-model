@@ -37,6 +37,7 @@ from gascompute.lcoe import (  # noqa: E402
 )
 from gascompute.netback import (  # noqa: E402
     PATHWAY_LABELS,
+    binding_comparator,
     compute_cost_per_accelerator_hour,
     netback_all,
 )
@@ -116,6 +117,7 @@ def scenario(req: ScenarioRequest) -> dict:
     )
     cash_cost = _f(cost["total"])
     be = breakeven_gpu_price(p)
+    comparator_key, comparator_value = binding_comparator(p)
 
     # Apply the same overrides to the stochastic run.
     #
@@ -160,6 +162,17 @@ def scenario(req: ScenarioRequest) -> dict:
             "facility_capital": _f(cost["facility_capital"]),
             "operating": _f(cost["operating"]),
             "total": cash_cost,
+        },
+        "comparator": {
+            "key": comparator_key,
+            "label": PATHWAY_LABELS.get(
+                comparator_key, "the price the gas already fetches"
+            ),
+            "value": comparator_value,
+            # True when no other route clears the regulated price, so the thing
+            # compute must beat is the wholesale price itself rather than
+            # another use. The sentence on screen changes accordingly.
+            "is_price_floor": comparator_key == "regulated_price",
         },
         "breakeven": {
             "point": be,

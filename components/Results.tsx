@@ -239,9 +239,21 @@ export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
         </p>
       </div>
 
-      <p className="djn-explain" style={{ marginTop: "var(--s3)" }}>
-        Across the uncertainty this runs from {money(b.p10)} to {money(b.p90)}. Below it, the gas is
-        worth more as something else.
+      <p className="djn-explain" style={{ marginTop: "var(--s4)" }}>
+        {data.comparator.is_price_floor ? (
+          <>
+            Right now no other use of the gas even covers what the gas already sells for, so the
+            thing compute has to beat is simply that price: {money(data.comparator.value)} per unit.
+            Below {money(b.point)} an hour, nobody would hand the gas over at all.
+          </>
+        ) : (
+          <>
+            Below this, the same gas makes more money as{" "}
+            {data.comparator.label.toLowerCase()}. Try different assumptions on the left and this
+            number moves: across everything the model considers plausible, it lands somewhere
+            between {money(b.p10)} and {money(b.p90)}.
+          </>
+        )}
       </p>
 
       <div
@@ -255,11 +267,11 @@ export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
         }}
       >
         <Metric
-          label="Cost of running the chip"
+          label="Cost of running one chip for an hour"
           value={b.cash_cost}
           dp={4}
           prefix="$"
-          caption="Capital and operating cost per accelerator-hour, before any gas is bought"
+          caption="Buying the machine, housing it, and keeping it running. Before any gas is paid for."
           glossary="crf"
         />
         <Metric
@@ -267,7 +279,7 @@ export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
           value={b.gas_opportunity_cost}
           dp={4}
           prefix="$"
-          caption={`${pct(gasShare, 1)} of the cost of running the accelerator`}
+          caption={`Just ${pct(gasShare, 1)} of what the machine itself costs to run`}
           glossary="opportunityCost"
           accent
         />
@@ -276,7 +288,7 @@ export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
           value={data.compute_ranks_first_share * 100}
           dp={1}
           suffix="%"
-          caption={`Of ${data.draws.toLocaleString()} runs across the full range of assumptions`}
+          caption={`Out of ${data.draws.toLocaleString()} runs using every plausible combination of assumptions`}
           glossary="lhs"
         />
       </div>
@@ -303,11 +315,17 @@ export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
               marginTop: "var(--s3)",
             }}
           >
-            The gas is worth {money(b.gas_opportunity_cost, 4)} per accelerator-hour, under{" "}
-            {pct(gasShare, 0)} of what the machine costs to run. At that scale the gas price is not
-            a lever: moving it across the whole regulated band barely changes a developer&rsquo;s
-            decision. If Nigeria wants to shape where this load lands, licensing conditions,
-            embedded-generation obligations and siting rules do the work that pricing cannot.
+            The gas going into one chip-hour is worth {money(b.gas_opportunity_cost, 4)}. The chip
+            itself costs {money(b.cash_cost)} an hour to run. So the gas is under {pct(gasShare, 0)}{" "}
+            of the bill.
+            <br />
+            <br />
+            That matters for policy. Nigeria sets the price of this gas, and the natural assumption
+            is that the price is a lever: charge more, and data centres go elsewhere. These numbers
+            say it is not. A developer deciding where to build would barely notice the difference
+            between the cheapest and dearest price on the official schedule. If the country wants a
+            say in where this demand lands, the tools that would work are the conditions attached to
+            a licence, not the number on the gas bill.
           </p>
         </motion.div>
       )}

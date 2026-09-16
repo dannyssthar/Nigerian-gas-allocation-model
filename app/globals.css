@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./radius.css";
 
 /* ═══════════════════════════════════════════════════════════════════
    DJN · DESIGN TOKENS
@@ -142,12 +143,6 @@ body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--fo
 .djn-title{font-family:var(--font-display);font-weight:700;letter-spacing:var(--tr-title);line-height:1.16}
 .djn-measure{max-width:64ch}
 
-.djn-squircle{border-radius:var(--r-xl)}
-.djn-squircle-sm{border-radius:var(--r-md)}
-.djn-squircle-lg{border-radius:var(--r-2xl)}
-@supports (corner-shape:squircle){
-  .djn-squircle,.djn-squircle-sm,.djn-squircle-lg{corner-shape:squircle}
-}
 
 /* ═══════════════════════════════════════════════════════════
    SCROLL PROGRESS · fixed hairline, neon
@@ -258,12 +253,12 @@ body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--fo
 
 .djn-section{scroll-margin-top:calc(var(--nav-h) + 20px)}
 .djn-section__head{display:flex;flex-wrap:wrap;align-items:flex-start;
-  justify-content:space-between;gap:var(--s4);margin-bottom:var(--s5)}
+  justify-content:space-between;gap:var(--s5);margin-bottom:var(--s8)}
 /* The explainer line under every section heading. This is the component that
    answers "what am I looking at" before the reader has to ask. */
 .djn-explain{font-size:var(--fs-sm);color:var(--text-secondary);line-height:1.65;max-width:62ch}
-.djn-note{font-size:var(--fs-micro);color:var(--text-tertiary);line-height:1.65;
-  margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--line)}
+.djn-note{font-size:var(--fs-sm);color:var(--text-tertiary);line-height:1.72;
+  margin-top:var(--s8);padding-top:var(--s6);border-top:1px solid var(--line)}
 
 /* ═══════════════════════════════════════════════════════════
    TOOLTIP · fixed-positioned so no ancestor can clip it
@@ -363,35 +358,22 @@ table.djn-table tbody tr[data-best="true"]{background:var(--accent-wash)}
   padding:var(--s6) var(--s5) var(--s16);
   border-right:1px solid var(--line);background:var(--bg-secondary)}
 
-.djn-results{min-width:0;padding:var(--s8) var(--s6) var(--s24)}
+.djn-results{min-width:0;padding:var(--s16) var(--s10) var(--s32)}
 
 .djn-sheet-trigger{display:none}
 .djn-scrim{display:none}
 
 @media (max-width:1100px){
   .djn-workbench{grid-template-columns:minmax(0,1fr)}
-  .djn-results{padding:var(--s6) var(--s4) var(--s32)}
+  .djn-results{padding:var(--s10) var(--s5) var(--s32)}
 
-  .djn-rail{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:110;
-    height:min(78vh,620px);width:100%;
-    border-right:none;border-top:1px solid var(--line-strong);
-    border-radius:var(--r-2xl) var(--r-2xl) 0 0;
-    box-shadow:var(--e3);background:var(--surface);
-    transform:translateY(100%);transition:transform .42s var(--ease-ent);
-    padding-top:var(--s5)}
-  .djn-rail[data-open="true"]{transform:translateY(0)}
+  /* Below this width the rail is not rendered at all: the assumptions live
+     in the Sheet component instead. Rendering both and hiding one would
+     duplicate every input id in the document. */
+  .djn-rail{display:none}
 
-  /* grab handle, so the sheet reads as draggable even though the button
-     is what closes it */
-  .djn-rail::before{content:"";position:sticky;top:0;display:block;
-    width:38px;height:4px;margin:0 auto var(--s5);border-radius:99px;
-    background:var(--line-strong)}
-
-  .djn-scrim{display:block;position:fixed;inset:0;z-index:105;
-    background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .35s}
-  .djn-scrim[data-open="true"]{opacity:1;pointer-events:auto}
-
-  .djn-sheet-trigger{display:inline-flex;position:fixed;bottom:20px;left:50%;
+  .djn-sheet-trigger{display:inline-flex;position:fixed;
+    bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;
     transform:translateX(-50%);z-index:108;box-shadow:var(--e3)}
 }
 
@@ -407,6 +389,41 @@ table.djn-table tbody tr[data-best="true"]{background:var(--accent-wash)}
 
 .djn-hero__line{display:block;overflow:hidden}
 .djn-hero__line > span{display:block}
+
+/* ═══════════════════════════════════════════════════════════
+   BOTTOM SHEET
+   ═══════════════════════════════════════════════════════════ */
+.djn-sheet__scrim{position:fixed;inset:0;z-index:180;background:var(--scrim);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+
+.djn-sheet{position:fixed;left:0;right:0;bottom:0;z-index:190;
+  display:flex;flex-direction:column;
+  height:min(86svh,700px);
+  background:var(--surface);border-top:1px solid var(--line-strong);
+  box-shadow:var(--e3);
+  /* The sheet is dragged, so it must never be the thing that scrolls the
+     page behind it. */
+  overscroll-behavior:contain;touch-action:none}
+
+/* The grip. Visible bar is 38x5, the target around it is 44px tall, because a
+   5px bar is not something a thumb can reliably find. */
+.djn-sheet__grip{display:flex;align-items:center;justify-content:center;
+  height:28px;padding-top:10px;flex-shrink:0;cursor:grab;touch-action:none}
+.djn-sheet__grip:active{cursor:grabbing}
+.djn-sheet__grip > span{display:block;width:38px;height:5px;border-radius:99px;
+  background:var(--line-strong);transition:background .2s,width .25s var(--ease-ent)}
+.djn-sheet__grip:active > span{background:var(--accent-graphic);width:46px}
+/* Dimmed while the content is scrolled, because dragging from the body is
+   disabled there and the affordance should not claim otherwise. */
+.djn-sheet__grip > span[data-active="false"]{opacity:.45}
+
+.djn-sheet__head{display:flex;align-items:center;justify-content:space-between;
+  gap:var(--s4);padding:var(--s2) var(--s6) var(--s5);flex-shrink:0;
+  border-bottom:1px solid var(--line)}
+
+.djn-sheet__body{flex:1;overflow-y:auto;overscroll-behavior:contain;
+  touch-action:pan-y;
+  padding:var(--s6) var(--s6) calc(var(--s16) + env(safe-area-inset-bottom,0px))}
 
 /* ═══════════════════════════════════════════════════════════
    WALKTHROUGH

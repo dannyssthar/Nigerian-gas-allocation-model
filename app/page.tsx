@@ -7,6 +7,7 @@ import Hero from "@/components/Hero";
 import { Method, Standing } from "@/components/Method";
 import Nav from "@/components/Nav";
 import ParameterRail from "@/components/ParameterRail";
+import Sheet from "@/components/Sheet";
 import { Skeleton } from "@/components/Primitives";
 import {
   BreakevenPanel,
@@ -33,23 +34,42 @@ export default function Page() {
 
   const tour = useWalkthrough();
 
+  /* Rendered EITHER in the sidebar OR in the sheet, never both. Rendering both
+     and hiding one with CSS would put every slider's id in the document twice,
+     which breaks every <label for> on the page. */
+  const wide = useMediaQuery("(min-width: 1101px)");
+
   /* A slider drag fires dozens of events. Debouncing to one call per 140 ms
      keeps the engine from being hammered while still feeling immediate, and
      the generation counter discards any response whose answer is already
      stale, so a fast drag can never leave the page showing an older run. */
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generation = useRef(0);
+  const inflight = useRef<AbortController | null>(null);
 
   const compute = useCallback(async (ov: Record<string, number>) => {
+    // A superseded run is aborted rather than merely ignored. Dragging a
+    // slider used to leave a queue of requests still being computed and sent
+    // over the wire, which is wasted engine time and wasted bandwidth for
+    // someone on a mobile connection.
+    inflight.current?.abort();
+    const controller = new AbortController();
+    inflight.current = controller;
+
     const mine = ++generation.current;
     setBusy(true);
     try {
-      const res = await runScenario(ov, { draws: 4096, includeSamples: true });
+      const res = await runScenario(ov, {
+        draws: 4096,
+        includeSamples: true,
+        signal: controller.signal,
+      });
       if (mine === generation.current) {
         setData(res);
         setError(null);
       }
     } catch (e) {
+      if ((e as Error)?.name === "AbortError") return; // superseded, not failed
       if (mine === generation.current) {
         setError(e instanceof Error ? e.message : "The engine did not respond.");
       }
@@ -77,15 +97,6 @@ export default function Page() {
     compute({});
   }
 
-  // Lock the page behind the bottom sheet, so a scroll gesture moves the
-  // sheet's own content rather than the article underneath it.
-  useEffect(() => {
-    document.body.style.overflow = sheet ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [sheet]);
-
   return (
     <>
       <Nav onReplayTour={tour.start} />
@@ -93,28 +104,21 @@ export default function Page() {
       <Hero onStart={tour.start} />
 
       <div className="djn-workbench">
-        {/* Visibility is controlled only by data-open, never an inline style.
-            On desktop the media query makes it a static sidebar and the
-            attribute is inert. */}
-        <aside
-          className="djn-rail"
-          data-open={sheet}
-          aria-label="Model assumptions"
-          aria-hidden={false}
-        >
-          {meta ? (
-            <ParameterRail
-              parameters={meta.parameters}
-              values={overrides}
-              onChange={onChange}
-              onReset={onReset}
-              busy={busy}
-              onClose={sheet ? () => setSheet(false) : undefined}
-            />
-          ) : (
-            <p className="djn-data-label">Loading assumptions</p>
-          )}
-        </aside>
+        {wide && (
+          <aside className="djn-rail" aria-label="Your assumptions">
+            {meta ? (
+              <ParameterRail
+                parameters={meta.parameters}
+                values={overrides}
+                onChange={onChange}
+                onReset={onReset}
+                busy={busy}
+              />
+            ) : (
+              <p className="djn-data-label">Loading assumptions</p>
+            )}
+          </aside>
+        )}
 
         <main className="djn-results">
           <div style={{ maxWidth: 1020, marginInline: "auto", display: "flex", flexDirection: "column", gap: "var(--s6)" }}>
@@ -212,13 +216,27 @@ export default function Page() {
         </main>
       </div>
 
-      {/* mobile sheet controls */}
-      <div className="djn-scrim" data-open={sheet} onClick={() => setSheet(false)} aria-hidden="true" />
+      {!wide && (
+        <Sheet open={sheet} onClose={() => setSheet(false)} title="Your assumptions">
+          {meta ? (
+            <ParameterRail
+              parameters={meta.parameters}
+              values={overrides}
+              onChange={onChange}
+              onReset={onReset}
+              busy={busy}
+            />
+          ) : (
+            <p className="djn-data-label">Loading assumptions</p>
+          )}
+        </Sheet>
+      )}
+
       <button
-        className="djn-btn djn-btn--accent djn-sheet-trigger"
-        onClick={() => setSheet((s) => !s)}
+        className="djn-btn djn-btn--accent djn-sheet-trigger r-pill"
+        onClick={() => setSheet(true)}
         aria-expanded={sheet}
-        style={{ padding: "13px 24px" }}
+        style={{ padding: "14px 26px" }}
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -226,10 +244,33 @@ export default function Page() {
           <circle cx="15" cy="12" r="2.4" fill="currentColor" />
           <circle cx="8" cy="17" r="2.4" fill="currentColor" />
         </svg>
-        {sheet ? "Close" : "Adjust assumptions"}
+        Adjust assumptions
       </button>
 
       {tour.active && <Walkthrough onClose={tour.stop} />}
     </>
   );
+}
+
+
+/**
+ * Viewport query as state.
+ *
+ * Reads false on the server and corrects after mount, which is deliberate: the
+ * server has no viewport, so guessing produces a hydration mismatch. The
+ * mobile layout is the safe first paint because it is the one that works at
+ * every width.
+ */
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const update = () => setMatches(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, [query]);
+
+  return matches;
 }

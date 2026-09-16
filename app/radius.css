@@ -1,0 +1,121 @@
+/* ═══════════════════════════════════════════════════════════════════
+   THE RADIUS SYSTEM
+   Import this after globals.css. It replaces the old .djn-squircle
+   utilities entirely.
+   ═══════════════════════════════════════════════════════════════════
+
+   THE PROBLEM, STATED PROPERLY
+
+   `border-radius` draws a quarter-circle. iOS draws a superellipse, what
+   Apple calls a continuous corner. They are different curves, and at the
+   same nominal radius they do not look the same:
+
+     - the circular arc starts turning abruptly, so the corner reads as a
+       visible arc stuck onto a straight edge
+     - the superellipse begins curving earlier and finishes later, so the
+       corner reads as the edge itself bending
+
+   The consequence is the one you noticed. A superellipse spreads its
+   curvature over a longer run of the edge, so at an identical radius value
+   it looks LESS round than a circular corner, while occupying MORE of the
+   edge. Put a 12px circular corner next to iOS's native 12px continuous
+   corner and the circular one looks tighter and blobbier.
+
+   WHY I WOULD NOT FORK THE CSS BY PLATFORM
+
+   The obvious move is to sniff the user agent and ship different radii to
+   iOS and Android. I would reject that in review, for four reasons:
+
+     1. It is a lie about the variable. The thing that differs is which
+        corner geometry the browser can RENDER, not which company made the
+        phone. Safari on a Mac and Safari on an iPhone have the same
+        capability; Chrome on Android and Chrome on a Mac have the same
+        capability. Keying off the OS gets all four wrong at least once.
+     2. UA strings are unreliable and get worse every year. iPadOS reports
+        as macOS. Desktop-site toggles lie. Every branch is a bug waiting.
+     3. It doubles the surface area you have to maintain and test forever,
+        for a difference of a few pixels.
+     4. It cannot be server-rendered without either a hydration mismatch or
+        a flash of the wrong shape.
+
+   WHAT I DO INSTEAD
+
+   Feature detection plus one compensation factor.
+
+   `@supports (corner-shape: squircle)` asks the browser the only question
+   that matters: can you draw a superellipse? Where the answer is yes, we
+   draw one AND scale the radius up, because the superellipse reads tighter
+   at the same number. Where the answer is no, we fall back to a plain
+   circular radius at its nominal value, which is exactly the shape the rest
+   of that platform already uses, so it looks native there too.
+
+   One stylesheet. No sniffing. No hydration risk. The shape upgrades on its
+   own as browser support lands, with no code change.
+
+   The 1.2 factor is empirical, not derived: it is roughly where a
+   superellipse stops reading tighter than the circular corner it replaced.
+   Between 1.15 and 1.25 all look defensible. Tune it once, here, and every
+   corner in the product moves together.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root{
+  /* Radii named by ROLE, never by size. "Card" survives a redesign; "16px"
+     does not, and the moment a value is literal it gets copied by hand into
+     forty places and drifts. */
+  --r-control:10px;   /* buttons, chips, inputs        */
+  --r-field:12px;     /* text fields, small containers */
+  --r-card:18px;      /* cards, panels                 */
+  --r-modal:24px;     /* dialogs, the tour card        */
+  --r-sheet:28px;     /* the bottom sheet              */
+  --r-hero:34px;      /* full-bleed feature surfaces   */
+  --r-pill:1000px;
+
+  /* Fallback path: circular corners, nominal radius. */
+  --sq:1;
+}
+
+@supports (corner-shape: squircle){
+  :root{
+    /* Superellipse path: same shapes, radius compensated. */
+    --sq:1.2;
+  }
+}
+
+/* One class per role. Each sets both properties; `corner-shape` is simply
+   ignored by browsers that do not know it, which is the whole trick. */
+.r-control{ border-radius:calc(var(--r-control) * var(--sq)); corner-shape:squircle; }
+.r-field  { border-radius:calc(var(--r-field)   * var(--sq)); corner-shape:squircle; }
+.r-card   { border-radius:calc(var(--r-card)    * var(--sq)); corner-shape:squircle; }
+.r-modal  { border-radius:calc(var(--r-modal)   * var(--sq)); corner-shape:squircle; }
+.r-sheet  { border-radius:calc(var(--r-sheet)   * var(--sq)) calc(var(--r-sheet) * var(--sq)) 0 0;
+            corner-shape:squircle; }
+.r-hero   { border-radius:calc(var(--r-hero)    * var(--sq)); corner-shape:squircle; }
+.r-pill   { border-radius:var(--r-pill); }   /* a pill is already a superellipse at the limit */
+
+/* ═══════════════════════════════════════════════════════════════════
+   NESTED RADII
+
+   The detail almost everyone misses, and the one that makes nesting look
+   accidental when it is wrong.
+
+   For an inner corner to stay concentric with the outer one, its radius must
+   be the outer radius MINUS the gap between them. Use the same radius on
+   both and the inner corner looks too round, and the gap appears to swell at
+   each corner.
+
+       inner = outer − padding
+
+   A card with --r-card and 16px of padding gives its inner element
+   calc(var(--r-card) - 16px). This utility does the arithmetic from a single
+   custom property so the relationship cannot drift when padding changes.
+   ═══════════════════════════════════════════════════════════════════ */
+.r-nested{
+  border-radius:calc(max(var(--r-card) - var(--nest-pad, 16px), 4px) * var(--sq));
+  corner-shape:squircle;
+}
+
+/* Legacy aliases. The old class names stay working so nothing has to be
+   renamed in one pass; new markup should use the role names above. */
+.djn-squircle    { border-radius:calc(var(--r-card)  * var(--sq)); corner-shape:squircle; }
+.djn-squircle-sm { border-radius:calc(var(--r-field) * var(--sq)); corner-shape:squircle; }
+.djn-squircle-lg { border-radius:calc(var(--r-hero)  * var(--sq)); corner-shape:squircle; }

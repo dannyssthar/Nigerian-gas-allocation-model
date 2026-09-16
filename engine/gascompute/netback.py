@@ -220,17 +220,48 @@ def netback_all(p: dict) -> dict[str, np.ndarray]:
 
 
 def best_alternative_to_compute(p: dict) -> np.ndarray:
-    """The highest-earning pathway other than compute.
+    """The comparator the break-even is solved against.
 
-    This is the comparator the break-even is solved against: compute does not
-    have to beat the sum of the alternatives, only the best one, because the
-    gas can only go one way.
+    Compute does not have to beat the sum of the alternatives, only the best
+    one, because the gas can only go one way.
+
+    The regulated price is a floor on that comparator, and leaving it out was a
+    real error. If every alternative route nets back less than the regulated
+    wholesale price, the gas does not get sold into a loss-making route: it
+    stays in the ground, or goes to whoever will pay the schedule. So the
+    opportunity cost of taking that gas is never lower than what the seller can
+    already get for it. Without this floor the model would report a break-even
+    below the regulated price, which is a price at which no transaction would
+    happen in the first place.
     """
     others = np.vstack(
         [np.atleast_1d(PATHWAYS[k](p)) for k in ("grid", "fertiliser", "lng")]
     )
     best = others.max(axis=0)
+
+    # the regulated wholesale price is the floor described above
+    floor = np.atleast_1d(np.asarray(p["gas_price_power"], dtype=float))
+    best = np.maximum(best, floor)
+
     # vstack forces at least one dimension, so a single scenario would come back
     # as a length-1 array. Collapse it to 0-d to match the other pathway
     # functions, which return a scalar in, scalar out.
     return best if best.size > 1 else best.reshape(())
+
+
+def binding_comparator(p: dict) -> tuple[str, float]:
+    """Which constraint is actually setting the break-even, and at what level.
+
+    The interface needs this to say something true rather than something
+    generic. "Compute has to beat fertiliser" and "compute has to beat the
+    price the gas already fetches" are different sentences, and only one of
+    them is correct at any given setting.
+    """
+    values = {k: float(np.asarray(PATHWAYS[k](p)).reshape(-1)[0])
+              for k in ("grid", "fertiliser", "lng")}
+    floor = float(np.asarray(p["gas_price_power"], dtype=float).reshape(-1)[0])
+
+    best_name = max(values, key=lambda k: values[k])
+    if values[best_name] >= floor:
+        return best_name, values[best_name]
+    return "regulated_price", floor
