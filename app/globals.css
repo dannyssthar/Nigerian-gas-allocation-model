@@ -409,6 +409,43 @@ table.djn-table tbody tr[data-best="true"]{background:var(--accent-wash)}
 .djn-hero__line > span{display:block}
 
 /* ═══════════════════════════════════════════════════════════
+   WALKTHROUGH
+   Width is capped by the viewport, not just by a pixel value, so the card
+   can never exceed the screen it is drawn on.
+   ═══════════════════════════════════════════════════════════ */
+.djn-tour-card{position:fixed;z-index:310;
+  width:auto;max-width:min(372px,calc(100vw - 32px));
+  padding:var(--s6);border-radius:var(--r-xl);
+  background:var(--surface);border:1px solid var(--line-strong);
+  box-shadow:var(--e3)}
+@supports (corner-shape:squircle){ .djn-tour-card{corner-shape:squircle} }
+
+/* On a phone the card spans the full width between its insets, and clears the
+   home indicator on notched devices. */
+@media (max-width:760px){
+  .djn-tour-card{max-width:none;width:auto;
+    padding-bottom:calc(var(--s6) + env(safe-area-inset-bottom,0px))}
+}
+
+.djn-tour-card__top{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:var(--s4)}
+.djn-tour-skip{font-family:var(--font-mono);font-size:var(--fs-micro);
+  letter-spacing:var(--tr-micro);text-transform:uppercase;color:var(--text-tertiary);
+  padding:4px 8px;margin:-4px -8px;border-radius:var(--r-xs);transition:color .18s}
+.djn-tour-skip:hover{color:var(--text-primary)}
+
+.djn-tour-body{font-size:var(--fs-sm);color:var(--text-secondary);
+  line-height:1.7;margin-top:var(--s3)}
+
+.djn-tour-rail{height:2px;border-radius:99px;background:var(--line-strong);
+  margin-top:var(--s6);overflow:hidden}
+.djn-tour-rail > span{display:block;height:100%;border-radius:99px;
+  background:var(--accent-graphic);box-shadow:var(--accent-glow)}
+
+.djn-tour-actions{display:flex;gap:var(--s2);margin-top:var(--s5);align-items:stretch}
+.djn-tour-actions .djn-btn{padding:12px 18px}
+
+/* ═══════════════════════════════════════════════════════════
    MOTION
    ═══════════════════════════════════════════════════════════ */
 ::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
