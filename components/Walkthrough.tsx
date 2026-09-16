@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion";
+import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -320,15 +320,22 @@ export default function Walkthrough({ onClose }: { onClose: () => void }) {
 /**
  * The spotlight.
  *
- * Driven by springs on x, y, width and height rather than a CSS transition, so
- * it settles with weight instead of arriving on a fixed curve. Position uses
- * transform, which the compositor can handle without touching layout.
+ * The first version sprang width and height, which forces the layout engine to
+ * run on every frame, while repainting a nine-thousand-pixel box-shadow. That
+ * combination is exactly what animation jank is made of.
  *
- * The darkening is a 9999px box-shadow, which cuts a hole in the scrim with a
- * single element. Two stacked layers would eventually drift out of sync.
+ * Now the darkening is one full-screen scrim whose HOLE is cut by a clip-path.
+ * Updating a clip-path is paint work only, never layout, and painting a flat
+ * translucent rectangle is what browsers do while scrolling, so it is already
+ * fast everywhere. The hole is a rounded rectangle wound counter-clockwise
+ * inside a huge clockwise outer rectangle, which the non-zero fill rule reads
+ * as a cut-out, with no reliance on newer fill-rule syntax.
+ *
+ * The lime ring is its own element with `contain: strict`, so the layout its
+ * resize triggers is scoped to the ring itself rather than the document.
  */
 function Spotlight({ box, onClose }: { box: Box | null; onClose: () => void }) {
-  const cfg = { stiffness: 220, damping: 28, mass: 0.85 };
+  const cfg = { stiffness: 230, damping: 30, mass: 0.85 };
   const xv = useMotionValue(0);
   const yv = useMotionValue(0);
   const wv = useMotionValue(0);
@@ -339,15 +346,20 @@ function Spotlight({ box, onClose }: { box: Box | null; onClose: () => void }) {
   const h = useSpring(hv, cfg);
   const [seen, setSeen] = useState(false);
 
+  const clip = useTransform([x, y, w, h], (v) => {
+    const [cx, cy, cw, ch] = v as number[];
+    return holePath(cx, cy, Math.max(cw, 1), Math.max(ch, 1), 18);
+  });
+
   useEffect(() => {
     if (!box) return;
-    // First appearance jumps into place; later moves glide. Springing in from
-    // 0,0 on the very first step looks like a mistake.
     if (!seen) {
-      xv.jump?.(box.left);
-      yv.jump?.(box.top);
-      wv.jump?.(box.width);
-      hv.jump?.(box.height);
+      // first appearance lands in place; springing in from the origin on the
+      // opening step reads as a glitch, not an entrance
+      xv.jump(box.left);
+      yv.jump(box.top);
+      wv.jump(box.width);
+      hv.jump(box.height);
       setSeen(true);
     }
     xv.set(box.left);
@@ -368,26 +380,62 @@ function Spotlight({ box, onClose }: { box: Box | null; onClose: () => void }) {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.35 }}
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        x,
-        y,
-        width: w,
-        height: h,
-        borderRadius: 16,
-        boxShadow: "0 0 0 9999px var(--scrim)",
-        border: "1.5px solid var(--accent-graphic)",
-        pointerEvents: "none",
-      }}
-    />
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.35 }}
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "var(--scrim)",
+          clipPath: clip,
+          WebkitClipPath: clip,
+        }}
+      />
+      <motion.div
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          x,
+          y,
+          width: w,
+          height: h,
+          contain: "strict",
+          borderRadius: 18,
+          border: "1.5px solid var(--accent-graphic)",
+          boxShadow: "var(--accent-glow)",
+          pointerEvents: "none",
+        }}
+      />
+    </>
   );
+}
+
+/**
+ * A screen-sized rectangle with a rounded cut-out.
+ *
+ * Outer rectangle clockwise, inner counter-clockwise: under the default
+ * non-zero winding rule the reversed inner loop subtracts, leaving a hole.
+ * The outer rectangle is a fixed 100,000px, which outsizes any viewport and
+ * saves reading window dimensions on every frame.
+ */
+function holePath(x: number, y: number, w: number, h: number, r: number) {
+  const rr = Math.min(r, w / 2, h / 2);
+  return `path("M0 0H100000V100000H0Z \
+M${x + rr} ${y} \
+A${rr} ${rr} 0 0 0 ${x} ${y + rr} \
+V${y + h - rr} \
+A${rr} ${rr} 0 0 0 ${x + rr} ${y + h} \
+H${x + w - rr} \
+A${rr} ${rr} 0 0 0 ${x + w} ${y + h - rr} \
+V${y + rr} \
+A${rr} ${rr} 0 0 0 ${x + w - rr} ${y} \
+Z")`;
 }
 
 /**

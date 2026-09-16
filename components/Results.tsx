@@ -163,19 +163,31 @@ export function NetbackChart({ data }: { data: ScenarioResponse }) {
               </div>
 
               <div className="djn-bar-track">
+                {/* scaleX from a fixed origin, not width. Width is recomputed
+                    by the layout engine on every frame of the tween; a scale
+                    is composited on the GPU and never touches layout. The
+                    origin sits at the zero line, so a negative netback simply
+                    scales negative and grows leftward. */}
                 <motion.div
                   className="djn-bar-fill"
                   data-winner={isWinner}
                   initial={false}
-                  animate={{ width: `${Math.max(x(row.value) - x(0), 0)}%` }}
+                  animate={{ scaleX: (x(row.value) - x(0)) / 100 }}
                   transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: i * 0.04 }}
-                  style={{ marginLeft: `${x(0)}%` }}
+                  style={{ width: "100%", transformOrigin: `${x(0)}% 50%` }}
                 />
                 <span
                   className="djn-whisker"
                   aria-hidden="true"
                   style={{ left: `${x(row.p10)}%`, width: `${Math.max(x(row.p90) - x(row.p10), 0)}%` }}
                 />
+                {/* zero line, so a negative bar has a visible anchor */}
+                {x(0) > 0.5 && (
+                  <span
+                    aria-hidden="true"
+                    style={{ position: "absolute", top: 0, bottom: 0, left: `${x(0)}%`, width: 1, background: "var(--line-strong)" }}
+                  />
+                )}
               </div>
 
               <p className="djn-data-label" style={{ marginTop: 6 }}>

@@ -67,6 +67,32 @@ export default function GridStars() {
         .getPropertyValue("--accent-graphic")
         .trim() || "#6f9400";
 
+    /* The glow, paid for once.
+       ctx.shadowBlur re-runs a gaussian blur for every star on every frame,
+       and it is the single most expensive call in the 2D canvas API. Instead
+       the glowing head is rendered ONE time into a small offscreen sprite,
+       and each frame just blits that bitmap, which is close to free. The
+       sprite is rebuilt only when the theme changes the accent colour. */
+    let sprite: HTMLCanvasElement | null = null;
+    let spriteColour = "";
+    function headSprite(colour: string): HTMLCanvasElement {
+      if (sprite && spriteColour === colour) return sprite;
+      const s = document.createElement("canvas");
+      const R = 12;
+      s.width = R * 2;
+      s.height = R * 2;
+      const sc = s.getContext("2d")!;
+      const g = sc.createRadialGradient(R, R, 0, R, R, R);
+      g.addColorStop(0, colour);
+      g.addColorStop(0.35, colour);
+      g.addColorStop(1, "transparent");
+      sc.fillStyle = g;
+      sc.fillRect(0, 0, R * 2, R * 2);
+      sprite = s;
+      spriteColour = colour;
+      return s;
+    }
+
     function spawn(edge = true): Star {
       const dir = DIRS[Math.floor(Math.random() * DIRS.length)];
       const lines = Math.max(1, Math.floor((dir[0] !== 0 ? h : w) / GRID));
@@ -97,7 +123,10 @@ export default function GridStars() {
 
     function resize() {
       const rect = canvas!.getBoundingClientRect();
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      /* Capped at 1.5, not 2. A 3x phone screen at full resolution quadruples
+         the pixels every frame pushes, and glowing trails do not need retina
+         precision to read as glowing trails. */
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       w = rect.width;
       h = rect.height;
       canvas!.width = Math.floor(w * dpr);
@@ -178,15 +207,9 @@ export default function GridStars() {
           ctx!.stroke();
         }
 
-        // head
+        // head: one blit of the pre-rendered glow
         ctx!.globalAlpha = 0.95 * fade;
-        ctx!.fillStyle = colour;
-        ctx!.shadowColor = colour;
-        ctx!.shadowBlur = 10;
-        ctx!.beginPath();
-        ctx!.arc(s.x, s.y, 1.9, 0, Math.PI * 2);
-        ctx!.fill();
-        ctx!.shadowBlur = 0;
+        ctx!.drawImage(headSprite(colour), s.x - 12, s.y - 12);
       }
 
       ctx!.globalAlpha = 1;
