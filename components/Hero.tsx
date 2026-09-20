@@ -1,7 +1,7 @@
 "use client";
 
 import gsap from "gsap";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import GridStars from "./GridStars";
 import { Term } from "./Tooltip";
 
@@ -19,6 +19,18 @@ import { Term } from "./Tooltip";
  */
 export default function Hero({ onStart }: { onStart: () => void }) {
   const root = useRef<HTMLElement>(null);
+  const [cueHidden, setCueHidden] = useState(false);
+
+  /* The cue instructs the reader to scroll; once they have scrolled, the
+     instruction is stale, and by the time the model section is in sight it is
+     noise. Hidden after less than a tenth of the viewport of travel, restored
+     if they return to the top. */
+  useEffect(() => {
+    const onScroll = () => setCueHidden(window.scrollY > 90);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     const el = root.current;
@@ -124,6 +136,7 @@ export default function Hero({ onStart }: { onStart: () => void }) {
 
         <div
           className="djn-hero__cue"
+          data-hidden={cueHidden}
           style={{
             display: "flex",
             alignItems: "center",
