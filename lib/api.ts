@@ -49,6 +49,13 @@ export interface SiteRow {
   note: string;
 }
 
+export interface Comparator {
+  key: string;
+  label: string;
+  value: number;
+  is_price_floor: boolean;
+}
+
 export interface ScenarioResponse {
   set_id: string;
   seed: number;
@@ -78,6 +85,7 @@ export interface ScenarioResponse {
     p50: number;
     p90: number;
   };
+  comparator: Comparator;
   compute_ranks_first_share: number;
   lcoe: {
     busbar_usd_per_mwh: number;
@@ -100,8 +108,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     // Errors say what happened and what to do, never just "something broke".
     throw new Error(
-      `The engine returned ${res.status} for ${path}. If you are running ` +
-        `locally, check that uvicorn is up on port 8000.`
+      `The engine answered ${res.status}. Try the change again in a moment; if it persists, the model service is down rather than your input being wrong.`
     );
   }
   return res.json() as Promise<T>;
@@ -111,10 +118,11 @@ export const getParameters = () => request<ParametersResponse>("/api/parameters"
 
 export const runScenario = (
   overrides: Record<string, number>,
-  opts: { draws?: number; includeSamples?: boolean } = {}
+  opts: { draws?: number; includeSamples?: boolean; signal?: AbortSignal } = {}
 ) =>
   request<ScenarioResponse>("/api/scenario", {
     method: "POST",
+    signal: opts.signal,
     body: JSON.stringify({
       overrides,
       draws: opts.draws ?? 4096,
