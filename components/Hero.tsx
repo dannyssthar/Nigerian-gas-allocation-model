@@ -63,7 +63,7 @@ export default function Hero({ onStart }: { onStart: () => void }) {
 
       <div style={{ maxWidth: 1080, marginInline: "auto", width: "100%", position: "relative" }}>
         <p className="djn-eyebrow djn-eyebrow--accent djn-hero__eyebrow">
-          DanJohn&ndash;Nwobi Gas Allocation Model
+          NGAM &middot; Nigeria Gas Allocation Model
         </p>
 
         <h1
