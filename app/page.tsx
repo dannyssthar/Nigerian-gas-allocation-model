@@ -17,6 +17,7 @@ import {
   Verdict,
 } from "@/components/Results";
 import Walkthrough, { useWalkthrough } from "@/components/Walkthrough";
+import { CurrencyProvider } from "@/lib/currency-context";
 import {
   getParameters,
   runScenario,
@@ -25,6 +26,14 @@ import {
 } from "@/lib/api";
 
 export default function Page() {
+  return (
+    <CurrencyProvider>
+      <Workbench />
+    </CurrencyProvider>
+  );
+}
+
+function Workbench() {
   const [meta, setMeta] = useState<ParametersResponse | null>(null);
   const [data, setData] = useState<ScenarioResponse | null>(null);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
@@ -199,10 +208,10 @@ export default function Page() {
               }}
             >
               <strong style={{ color: "var(--text-secondary)" }}>
-                DanJohn&ndash;Nwobi Gas Allocation Model
+                NGAM &middot; Nigeria Gas Allocation Model
               </strong>
-              , working version. Daniel Dan-John, M.Sc. Energy Economics, CPEEL, University of
-              Ibadan. Supervisor: Dr. Dilinna Lucy Nwobi.
+              , working version. Built by Daniel Dan-John, M.Sc. Energy Economics, CPEEL,
+              University of Ibadan.
               {data && (
                 <>
                   <br />
