@@ -44,9 +44,10 @@ const METHOD = [
         Grid power is not paid for at the tariff: a large share of what is sent out is lost, never
         billed, or never collected, so netting back at the headline tariff flatters it. And
         liquefaction burns some of the feed gas, so only part of an <Unit k="LNGabbr" /> cargo is
-        ever sold. Both corrections push the comparison{" "}
-        <em>against</em> compute, which is the conservative direction and therefore the credible
-        one.
+        ever sold. Both corrections lower compute&rsquo;s rivals, so — to be plain about it —
+        they widen compute&rsquo;s lead. They are made because they are accurate, not because they
+        are cautious, and the honest reading is that part of compute&rsquo;s margin here comes from
+        rivals being measured properly rather than generously.
       </>
     ),
   },
