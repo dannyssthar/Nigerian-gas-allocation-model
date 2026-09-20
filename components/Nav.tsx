@@ -71,7 +71,7 @@ export default function Nav({ onReplayTour }: { onReplayTour: () => void }) {
 
       <nav className="djn-nav" data-tour="nav" aria-label="Sections">
         <a href="#top" className="djn-nav__mark" aria-label="DJN, back to top">
-          <b>DJN</b>
+          <b>NGAM</b>
           <span className="djn-eyebrow djn-eyebrow--accent djn-nav__sub">
             Gas Allocation Model
           </span>
@@ -184,7 +184,7 @@ export default function Nav({ onReplayTour }: { onReplayTour: () => void }) {
                   Take the walkthrough
                 </button>
                 <p className="djn-data-label" style={{ marginTop: "var(--s4)", textAlign: "center" }}>
-                  DanJohn&ndash;Nwobi &middot; CPEEL, University of Ibadan
+                  Nigeria Gas Allocation Model &middot; CPEEL, University of Ibadan
                 </p>
               </div>
             </motion.div>
