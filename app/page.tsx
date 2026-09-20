@@ -254,14 +254,27 @@ function Workbench() {
         </Sheet>
       )}
 
-      <Btn
-        variant="accent"
-        className="djn-fab"
-        layout
-        onClick={() => setSheet(true)}
-        aria-expanded={sheet}
-        aria-label="Adjust assumptions"
-      >
+      {/* The button and the overlay are the same object in two states, so
+          they must never be on screen together — seeing "Adjust" float over
+          the opened panel is like seeing a door and its doorway side by side.
+          Presence-animated out on open, back in on close. */}
+      <AnimatePresence>
+        {!sheet && (
+          <motion.div
+            key="fab"
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 18 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <Btn
+              variant="accent"
+              className="djn-fab"
+              layout
+              onClick={() => setSheet(true)}
+              aria-expanded={sheet}
+              aria-label="Adjust assumptions"
+            >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
           <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           <circle cx="9" cy="7" r="2.4" fill="currentColor" />
@@ -280,7 +293,10 @@ function Workbench() {
             {condensed ? "Adjust" : "Adjust assumptions"}
           </motion.span>
         </AnimatePresence>
-      </Btn>
+            </Btn>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {tour.active && <Walkthrough onClose={tour.stop} />}
     </>

@@ -89,7 +89,10 @@ export default function GridStars() {
         x,
         y,
         dir,
-        speed: 2.2 + Math.random() * 2.4,
+        /* Unhurried. At 60fps this is roughly 70–150px per second: the eye
+           catches the drift without being pulled from the headline, which is
+           the entire job of an ambient layer. */
+        speed: 1.15 + Math.random() * 1.35,
         trail: [],
         life: 0,
         maxLife: 220 + Math.random() * 360,
