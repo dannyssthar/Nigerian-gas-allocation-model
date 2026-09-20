@@ -1,5 +1,5 @@
 """
-DJN API.
+NGAM API.
 
 One service, four endpoints, deliberately small. Every response carries the
 parameter set id and the random seed so any figure on screen can be reproduced
@@ -49,7 +49,7 @@ from gascompute.uncertainty import (  # noqa: E402
     run_uncertainty,
 )
 
-app = FastAPI(title="DanJohn-Nwobi Gas Allocation Model", version="0.1.0")
+app = FastAPI(title="Nigeria Gas Allocation Model", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -223,4 +223,4 @@ def audit() -> dict:
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "model": "DJN", "set_id": base_case().set_id}
+    return {"ok": True, "model": "NGAM", "set_id": base_case().set_id}
