@@ -269,7 +269,9 @@ body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--fo
 /* ═══════════════════════════════════════════════════════════
    TOOLTIP · fixed-positioned so no ancestor can clip it
    ═══════════════════════════════════════════════════════════ */
-.djn-term{border-bottom:1px dashed var(--line-strong);cursor:help;
+/* The underline is an invitation to hover, so it carries a tint of the
+   accent — enough to be found, not enough to compete with real emphasis. */
+.djn-term{border-bottom:1px dashed color-mix(in srgb,var(--accent-graphic) 55%,var(--line-strong));cursor:help;
   color:inherit;font:inherit;padding:0;transition:border-color .18s,color .18s}
 .djn-term:hover,.djn-term[aria-expanded="true"]{border-bottom-color:var(--accent-text);
   color:var(--accent-text)}
@@ -390,6 +392,11 @@ table.djn-table tbody tr[data-best="true"]{background:var(--accent-wash)}
   -webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 40%,#000 20%,transparent 75%)}
 
 .djn-hero__line{display:block;overflow:hidden}
+
+/* The scroll cue belongs to the hero and only the hero: the moment the model
+   is in sight, an instruction to go find the model is stale. */
+.djn-hero__cue{transition:opacity .35s var(--ease-std)}
+.djn-hero__cue[data-hidden="true"]{opacity:0;pointer-events:none}
 .djn-hero__line > span{display:block}
 
 /* ═══════════════════════════════════════════════════════════
