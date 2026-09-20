@@ -34,13 +34,7 @@ export default function ChainDiagram({ data }: { data: ScenarioResponse }) {
       const tl = gsap.timeline({
         scrollTrigger: { trigger: el, start: "top 78%", once: true },
       });
-      tl.from(".djn-stage", { opacity: 0, y: 16, duration: 0.6, stagger: 0.1, ease: "power3.out" })
-        .fromTo(
-          ".djn-flow-path",
-          { strokeDashoffset: 100 },
-          { strokeDashoffset: 0, duration: 0.55, stagger: 0.1, ease: "power2.inOut" },
-          "-=0.5"
-        );
+      tl.from(".djn-stage", { opacity: 0, y: 16, duration: 0.6, stagger: 0.12, ease: "power3.out" });
     }, el);
 
     return () => ctx.revert();
@@ -110,30 +104,6 @@ export default function ChainDiagram({ data }: { data: ScenarioResponse }) {
       >
         {stages.map((s, i) => (
           <div key={s.label} className="djn-stage" style={{ position: "relative", minWidth: 0 }}>
-            {i > 0 && (
-              <svg
-                aria-hidden="true"
-                width="20"
-                height="10"
-                viewBox="0 0 20 10"
-                style={{
-                  position: "absolute",
-                  left: "calc(var(--s5) * -1)",
-                  top: 24,
-                  width: "var(--s5)",
-                  overflow: "visible",
-                }}
-              >
-                <path
-                  className="djn-flow-path"
-                  d="M0 5 H20"
-                  stroke="var(--accent-graphic)"
-                  strokeWidth="1.5"
-                  strokeDasharray="100"
-                  fill="none"
-                />
-              </svg>
-            )}
 
             <p className="djn-eyebrow" style={{ marginBottom: 8 }}>
               {s.label}
