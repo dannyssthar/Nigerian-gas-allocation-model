@@ -7,6 +7,7 @@ import Hero from "@/components/Hero";
 import { Method, Standing } from "@/components/Method";
 import Nav from "@/components/Nav";
 import ParameterRail from "@/components/ParameterRail";
+import Btn from "@/components/Button";
 import Sheet from "@/components/Sheet";
 import { Skeleton } from "@/components/Primitives";
 import {
@@ -40,6 +41,18 @@ function Workbench() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState(false);
+
+  /* The Adjust button condenses once the reader is into the content, the way
+     iOS large titles do: full sentence while orienting, compact once the
+     context is established. The hit target never shrinks — Fitts's law is
+     about the target, not the label — only the words condense. */
+  const [condensed, setCondensed] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setCondensed(window.scrollY > 360);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const tour = useWalkthrough();
 
@@ -241,20 +254,33 @@ function Workbench() {
         </Sheet>
       )}
 
-      <button
-        className="djn-btn djn-btn--accent djn-sheet-trigger r-pill"
+      <Btn
+        variant="accent"
+        className="djn-fab"
+        layout
         onClick={() => setSheet(true)}
         aria-expanded={sheet}
-        style={{ padding: "14px 26px" }}
+        aria-label="Adjust assumptions"
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
           <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
           <circle cx="9" cy="7" r="2.4" fill="currentColor" />
           <circle cx="15" cy="12" r="2.4" fill="currentColor" />
           <circle cx="8" cy="17" r="2.4" fill="currentColor" />
         </svg>
-        Adjust assumptions
-      </button>
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.span
+            key={condensed ? "s" : "l"}
+            layout
+            initial={{ opacity: 0, y: 6, filter: "blur(2px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, y: -6, filter: "blur(2px)" }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {condensed ? "Adjust" : "Adjust assumptions"}
+          </motion.span>
+        </AnimatePresence>
+      </Btn>
 
       {tour.active && <Walkthrough onClose={tour.stop} />}
     </>

@@ -63,9 +63,14 @@
 
 /* 3 · SCALE / TYPE / MOTION ───────────────────────────────── */
 :root{
-  --font-display:var(--font-urbanist), system-ui, sans-serif;
+  /* One geometric family pair. Display carries character; Manrope carries
+     everything else, including the numbers — a monospace face for data made
+     the interface read as a terminal, and tabular figures give Manrope the
+     only property the mono face was actually there for: digits of equal
+     width, so columns of numbers stay aligned while they count. */
+  --font-display:var(--font-grotesk), var(--font-manrope), system-ui, sans-serif;
   --font-body:var(--font-manrope), system-ui, sans-serif;
-  --font-mono:var(--font-jetbrains), ui-monospace, Menlo, monospace;
+  --font-mono:var(--font-manrope), system-ui, sans-serif;
 
   --fs-hero:clamp(2.75rem,1.6rem + 5.2vw,6rem);
   --fs-display-2xl:clamp(2.4rem,1.6rem + 3.4vw,3.9rem);
@@ -136,9 +141,10 @@ body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--fo
 .djn-eyebrow{font-size:var(--fs-eyebrow);font-weight:650;letter-spacing:var(--tr-label);
   text-transform:uppercase;color:var(--text-tertiary);line-height:1.4}
 .djn-eyebrow--accent{color:var(--accent-text)}
-.djn-data-label{font-family:var(--font-mono);font-size:var(--fs-micro);font-weight:500;
-  letter-spacing:var(--tr-micro);text-transform:uppercase;color:var(--text-tertiary)}
-.tnum{font-variant-numeric:tabular-nums}
+.djn-data-label{font-family:var(--font-body);font-size:var(--fs-micro);font-weight:620;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--text-tertiary);
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
 .djn-display{font-family:var(--font-display);font-weight:780;letter-spacing:var(--tr-display);line-height:1.02;text-wrap:balance}
 .djn-title{font-family:var(--font-display);font-weight:700;letter-spacing:var(--tr-title);line-height:1.16;text-wrap:balance}
 .djn-measure{max-width:64ch}
@@ -235,9 +241,8 @@ body{background:var(--bg-primary);color:var(--text-primary);font-family:var(--fo
   padding:10px 18px;border:1px solid var(--line-strong);border-radius:var(--r-pill);
   background:var(--surface);color:var(--text-primary);
   transition:border-color .2s var(--ease-std),background .2s var(--ease-std),
-    color .2s var(--ease-std),transform .22s var(--ease-ent),box-shadow .22s var(--ease-ent)}
-.djn-btn:hover{border-color:var(--text-primary);transform:translateY(-1px)}
-.djn-btn:active{transform:translateY(0) scale(.985);transition-duration:.06s}
+    color .2s var(--ease-std),box-shadow .22s var(--ease-ent)}
+.djn-btn:hover{border-color:var(--text-primary)}
 .djn-btn--primary{background:var(--text-primary);color:var(--bg-primary);border-color:var(--text-primary)}
 .djn-btn--primary:hover{opacity:.88}
 .djn-btn--accent{background:var(--accent-graphic);color:var(--brand-accent-ink);border-color:transparent;
@@ -361,8 +366,6 @@ table.djn-table tbody tr[data-best="true"]{background:var(--accent-wash)}
 
 .djn-results{min-width:0;padding:var(--s16) var(--s10) var(--s32)}
 
-.djn-sheet-trigger{display:none}
-.djn-scrim{display:none}
 
 @media (max-width:1100px){
   .djn-workbench{grid-template-columns:minmax(0,1fr)}
@@ -373,9 +376,7 @@ table.djn-table tbody tr[data-best="true"]{background:var(--accent-wash)}
      duplicate every input id in the document. */
   .djn-rail{display:none}
 
-  .djn-sheet-trigger{display:inline-flex;position:fixed;
-    bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;
-    transform:translateX(-50%);z-index:108;box-shadow:var(--e3)}
+
 }
 
 /* the hero holds its own full-bleed frame */
@@ -390,6 +391,45 @@ table.djn-table tbody tr[data-best="true"]{background:var(--accent-wash)}
 
 .djn-hero__line{display:block;overflow:hidden}
 .djn-hero__line > span{display:block}
+
+/* ═══════════════════════════════════════════════════════════
+   OVERLAY ARCHITECTURE
+   One wrapper centres every dialog by flexbox. Transforms are never used
+   for position — Framer Motion owns transform while animating, and a
+   translate(-50%,-50%) it overwrites strands the panel in a corner. The
+   wrapper ignores the pointer; only the scrim and the panel receive it.
+   ═══════════════════════════════════════════════════════════ */
+.djn-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:var(--s5);pointer-events:none}
+.djn-overlay__scrim{position:absolute;inset:0;background:var(--scrim);pointer-events:auto}
+
+.djn-panel{position:relative;pointer-events:auto;display:flex;flex-direction:column;
+  width:min(560px,100%);max-height:min(720px,84vh);
+  background:var(--surface);border:1px solid var(--line-strong);box-shadow:var(--e3);
+  border-radius:calc(var(--r-modal) * var(--sq));corner-shape:squircle;
+  overflow:hidden}
+/* WCAG 1.4.10 reflow: on a phone the panel takes 76svh and its BODY scrolls,
+   so no control is ever pushed off-screen. */
+@media (max-width:760px){
+  .djn-panel{height:min(78svh,640px);max-height:none}
+}
+.djn-panel--currency{width:min(440px,100%)}
+
+.djn-panel__head{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);
+  padding:var(--s5) var(--s6);border-bottom:1px solid var(--line);flex-shrink:0}
+.djn-panel__body{flex:1;overflow-y:auto;overscroll-behavior:contain;
+  padding:var(--s6) var(--s6) var(--s10)}
+
+/* ═══════════════════════════════════════════════════════════
+   THE ADJUST BUTTON · shrinks as you scroll, iOS-style
+   Fitts's law: the TARGET never shrinks — 56px tall throughout, and the
+   compact form keeps its full hit area; only the label condenses.
+   ═══════════════════════════════════════════════════════════ */
+.djn-fab{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  left:50%;translate:-50% 0;z-index:150;
+  min-height:56px;padding:0 24px;box-shadow:var(--e3);
+  display:none;align-items:center;gap:var(--s2);white-space:nowrap}
+@media (max-width:1100px){ .djn-fab{display:inline-flex} }
 
 /* ═══════════════════════════════════════════════════════════
    SEGMENTED CONTROL · sliders vs typed values
@@ -426,27 +466,13 @@ table.djn-table tbody tr[data-best="true"]{background:var(--accent-wash)}
   padding:var(--s3) var(--s4);border:1px solid var(--field-line);background:var(--field-bg);
   color:var(--text-tertiary);text-align:left;
   transition:border-color .2s var(--ease-std),transform .22s var(--ease-ent)}
-.djn-currency-trigger:hover{border-color:var(--text-primary);transform:translateY(-1px)}
+.djn-currency-trigger:hover{border-color:var(--text-primary)}
 .djn-currency-trigger__badge{display:flex;align-items:center;justify-content:center;
   width:34px;height:34px;flex-shrink:0;border-radius:50%;
   background:var(--accent-wash);color:var(--accent-text);
   font-weight:750;font-size:.95rem}
 .djn-currency-trigger__line{display:block;font-family:var(--font-mono);
   font-size:var(--fs-sm);font-weight:650;color:var(--text-primary);margin-top:2px}
-
-.djn-currency-scrim{position:fixed;inset:0;z-index:240;background:var(--scrim)}
-.djn-currency-panel{position:fixed;z-index:250;left:50%;top:50%;
-  transform:translate(-50%,-50%);width:min(430px,calc(100vw - 28px));
-  max-height:min(640px,calc(100svh - 40px));display:flex;flex-direction:column;
-  background:var(--surface);border:1px solid var(--line-strong);box-shadow:var(--e3);
-  padding:var(--s5) var(--s5) var(--s4)}
-@media (max-width:560px){
-  .djn-currency-panel{top:auto;bottom:0;left:0;transform:none;width:100%;
-    border-radius:calc(var(--r-sheet) * var(--sq)) calc(var(--r-sheet) * var(--sq)) 0 0;
-    padding-bottom:calc(var(--s4) + env(safe-area-inset-bottom,0px))}
-}
-.djn-currency-panel__head{display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:var(--s4)}
 
 .djn-currency-search{display:flex;align-items:center;gap:var(--s2);
   border:1px solid var(--field-line);border-radius:var(--r-pill);
@@ -458,6 +484,7 @@ table.djn-table tbody tr[data-best="true"]{background:var(--accent-wash)}
 
 .djn-currency-list{flex:1;overflow-y:auto;overscroll-behavior:contain;
   margin:var(--s3) calc(var(--s2) * -1) 0;padding:0 var(--s2);min-height:120px}
+.djn-panel--currency{padding:var(--s5) var(--s5) var(--s4)}
 .djn-currency-row{display:flex;align-items:center;gap:var(--s3);width:100%;
   padding:9px var(--s3);border-radius:var(--r-md);text-align:left;
   color:var(--text-primary);transition:background .15s}
@@ -488,40 +515,6 @@ table.djn-table tbody tr[data-best="true"]{background:var(--accent-wash)}
 .djn-currency-preview strong{color:var(--accent-text);font-weight:750}
 .djn-currency-note{font-size:var(--fs-micro);color:var(--text-muted);line-height:1.6;
   margin-top:var(--s3);flex-shrink:0}
-
-/* ═══════════════════════════════════════════════════════════
-   BOTTOM SHEET
-   ═══════════════════════════════════════════════════════════ */
-.djn-sheet__scrim{position:fixed;inset:0;z-index:180;background:var(--scrim)}
-
-.djn-sheet{position:fixed;left:0;right:0;bottom:0;z-index:190;
-  display:flex;flex-direction:column;
-  height:min(86svh,700px);
-  background:var(--surface);border-top:1px solid var(--line-strong);
-  box-shadow:var(--e3);
-  /* The sheet is dragged, so it must never be the thing that scrolls the
-     page behind it. */
-  overscroll-behavior:contain;touch-action:none}
-
-/* The grip. Visible bar is 38x5, the target around it is 44px tall, because a
-   5px bar is not something a thumb can reliably find. */
-.djn-sheet__grip{display:flex;align-items:center;justify-content:center;
-  height:28px;padding-top:10px;flex-shrink:0;cursor:grab;touch-action:none}
-.djn-sheet__grip:active{cursor:grabbing}
-.djn-sheet__grip > span{display:block;width:38px;height:5px;border-radius:99px;
-  background:var(--line-strong);transition:background .2s,width .25s var(--ease-ent)}
-.djn-sheet__grip:active > span{background:var(--accent-graphic);width:46px}
-/* Dimmed while the content is scrolled, because dragging from the body is
-   disabled there and the affordance should not claim otherwise. */
-.djn-sheet__grip > span[data-active="false"]{opacity:.45}
-
-.djn-sheet__head{display:flex;align-items:center;justify-content:space-between;
-  gap:var(--s4);padding:var(--s2) var(--s6) var(--s5);flex-shrink:0;
-  border-bottom:1px solid var(--line)}
-
-.djn-sheet__body{flex:1;overflow-y:auto;overscroll-behavior:contain;
-  touch-action:pan-y;
-  padding:var(--s6) var(--s6) calc(var(--s16) + env(safe-area-inset-bottom,0px))}
 
 /* ═══════════════════════════════════════════════════════════
    WALKTHROUGH

@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Btn from "./Button";
 
 /**
  * The walkthrough.
@@ -278,21 +279,21 @@ export default function Walkthrough({ onClose }: { onClose: () => void }) {
           <div className="djn-tour-actions">
             <AnimatePresence initial={false}>
               {i > 0 && (
-                <motion.button
+                <motion.div
                   initial={{ opacity: 0, width: 0 }}
                   animate={{ opacity: 1, width: "auto" }}
                   exit={{ opacity: 0, width: 0 }}
                   transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                  className="djn-btn djn-btn--ghost"
-                  onClick={() => setI(i - 1)}
                   style={{ overflow: "hidden", whiteSpace: "nowrap" }}
                 >
-                  Back
-                </motion.button>
+                  <Btn variant="ghost" onClick={() => setI(i - 1)}>
+                    Back
+                  </Btn>
+                </motion.div>
               )}
             </AnimatePresence>
-            <button
-              className="djn-btn djn-btn--accent"
+            <Btn
+              variant="accent"
               style={{ flex: 1 }}
               onClick={() => (last ? onClose() : setI(i + 1))}
             >
@@ -308,7 +309,7 @@ export default function Walkthrough({ onClose }: { onClose: () => void }) {
                   />
                 </svg>
               )}
-            </button>
+            </Btn>
           </div>
         </motion.div>
       </motion.div>

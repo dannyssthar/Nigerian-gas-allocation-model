@@ -1,49 +1,30 @@
 "use client";
 
-import {
-  AnimatePresence,
-  motion,
-  useDragControls,
-  useMotionValue,
-  useTransform,
-  type PanInfo,
-} from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { lockScroll, unlockScroll } from "@/lib/scroll-lock";
+import Btn from "./Button";
 
 /**
- * The bottom sheet.
+ * The assumptions overlay: a centred modal, no longer a bottom drawer.
  *
- * Previously this was a panel that appeared and disappeared on a button. It
- * had the shape of a sheet without any of the behaviour, which is worse than
- * not looking like one: it makes a promise the surface does not keep. Anyone
- * who has used a phone tries to drag it down within about two seconds.
+ * The drawer version carried a drag gesture, and on a phone that gesture
+ * fought the scroll gesture inside it \u2014 the first pixel of a scroll started a
+ * drag, the sheet twitched, the scroll won, the sheet snapped back. That is
+ * the shake. A centred panel makes no gesture promises it has to keep, so the
+ * grip pill is gone too: an affordance for a gesture that no longer exists
+ * would be a small lie.
  *
- * What a real sheet does, all of which is implemented here:
+ * Centring is done by a flex wrapper, never by transforms. Framer Motion owns
+ * an element's transform while animating it, so translate(-50%,-50%) centring
+ * is silently destroyed mid-animation \u2014 the bug that beached the currency
+ * panel in a corner. The wrapper ignores pointer events; only the panel and
+ * the scrim receive them, so the page around the panel is never dead space.
  *
- *   - It tracks the finger one-to-one while dragging down, so it feels
- *     attached rather than animated at.
- *   - It resists upward drag instead of refusing it. Rubber-banding tells the
- *     hand it has reached the top; a hard stop just feels broken.
- *   - It dismisses on either distance OR velocity. A short fast flick must
- *     close it, because that is the gesture people actually make. Requiring
- *     distance alone is the single most common reason a sheet feels sticky.
- *   - It returns with a spring if released short of the threshold, so an
- *     abandoned gesture is undone rather than punished.
- *   - Its backdrop fades in proportion to the drag, so the gesture is
- *     reversible in the user's eyes right up to the moment they let go.
- *   - It only drags when the content is scrolled to the top. Otherwise the
- *     same downward gesture means scroll, and hijacking it makes the content
- *     unreadable.
- *
- * The handle is not decoration. It is the affordance that says this can be
- * dragged, and it is also a target in its own right, so a drag started on it
- * works even when the content beneath is mid-scroll.
+ * Height is 76svh on phones (WCAG 1.4.10: the content reflows and scrolls
+ * inside, nothing is cut off-screen) and capped at 80vh on desktop.
  */
-
-const DISMISS_DISTANCE = 110; // px dragged before release closes it
-const DISMISS_VELOCITY = 520; // px/s, a flick
-
 export default function Sheet({
   open,
   onClose,
@@ -56,119 +37,55 @@ export default function Sheet({
   children: React.ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
-  const y = useMotionValue(0);
-  const controls = useDragControls();
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [canDrag, setCanDrag] = useState(true);
-
   useEffect(() => setMounted(true), []);
-
-  /* Backdrop opacity follows the sheet. Dragging halfway down leaves the page
-     behind visibly half-revealed, which is what makes the gesture feel
-     reversible rather than committed. */
-  const backdrop = useTransform(y, [0, 400], [1, 0], { clamp: true });
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    y.set(0);
+    lockScroll();
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      unlockScroll();
     };
-  }, [open, onClose, y]);
-
-  function handleDragEnd(_: unknown, info: PanInfo) {
-    const shouldClose =
-      info.offset.y > DISMISS_DISTANCE || info.velocity.y > DISMISS_VELOCITY;
-    if (shouldClose) onClose();
-    else y.set(0); // the spring in dragTransition carries it home
-  }
-
-  /* Drag from the body only when the content is already at the top. Below
-     that, a downward gesture means scroll, and taking it would make the
-     assumptions list unusable. The handle ignores this rule. */
-  function maybeStartDrag(e: React.PointerEvent) {
-    const el = scrollRef.current;
-    if (!el || el.scrollTop <= 0) controls.start(e);
-  }
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const onScroll = () => setCanDrag(el.scrollTop <= 0);
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [open]);
+  }, [open, onClose]);
 
   if (!mounted) return null;
 
   return createPortal(
     <AnimatePresence>
       {open && (
-        <>
+        <div className="djn-overlay" style={{ zIndex: 180 }}>
           <motion.div
-            className="djn-sheet__scrim"
-            style={{ opacity: backdrop }}
+            className="djn-overlay__scrim"
             initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.28 }}
+            transition={{ duration: 0.24 }}
             onClick={onClose}
             aria-hidden="true"
           />
-
           <motion.div
-            className="djn-sheet r-sheet"
+            className="djn-panel"
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            style={{ y }}
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            /* Entry and exit use the same spring, so opening and closing are
-               recognisably the same motion played in two directions. */
-            transition={{ type: "spring", stiffness: 320, damping: 36, mass: 0.9 }}
-            drag="y"
-            dragControls={controls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            /* Asymmetric on purpose: almost no give upward, generous give
-               downward. The sheet is at its ceiling, and the hand should feel
-               that without being stopped dead. */
-            dragElastic={{ top: 0.02, bottom: 0.9 }}
-            dragTransition={{ bounceStiffness: 420, bounceDamping: 40 }}
-            onDragEnd={handleDragEnd}
-            onPointerDown={maybeStartDrag}
+            initial={{ opacity: 0, scale: 0.94, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={{ type: "spring", stiffness: 340, damping: 32, mass: 0.9 }}
           >
-            {/* The handle: affordance and target in one. Padded far beyond its
-                visible size, because a 4px bar is not a touch target. */}
-            <div
-              className="djn-sheet__grip"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                controls.start(e);
-              }}
-            >
-              <span data-active={!canDrag ? "false" : "true"} />
-            </div>
-
-            <div className="djn-sheet__head">
+            <div className="djn-panel__head">
               <h2 className="djn-title" style={{ fontSize: "1.05rem" }}>
                 {title}
               </h2>
-              <button className="djn-btn djn-btn--ghost r-pill" onClick={onClose}>
+              <Btn variant="ghost" onClick={onClose}>
                 Done
-              </button>
+              </Btn>
             </div>
-
-            <div className="djn-sheet__body" ref={scrollRef}>
-              {children}
-            </div>
+            <div className="djn-panel__body">{children}</div>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>,
     document.body

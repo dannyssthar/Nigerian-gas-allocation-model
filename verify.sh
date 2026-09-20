@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# DJN · repository verification
+# NGAM · repository verification
 #
 # Run from the repository root, before you commit:
 #

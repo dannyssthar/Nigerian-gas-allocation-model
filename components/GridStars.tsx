@@ -3,26 +3,30 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Shooting stars on the grid.
+ * Grid comets.
  *
- * Each star is locked to a grid line, travels along it, and at every
- * intersection has a small chance of turning ninety degrees. That is what
- * makes the movement read as wandering rather than scripted: nothing is
- * choreographed, but nothing ever leaves the lattice either.
+ * One visual idea, executed once: a thin line that fades from nothing to the
+ * accent colour, travelling along the gridlines. No head dot, no glow, no
+ * white core \u2014 the gradient IS the star. It uses exactly one colour, read
+ * live from the design system, so it is lime in dark mode, deep green in
+ * light, and can never drift from the palette.
  *
- * Canvas rather than SVG or DOM nodes. A dozen trails each redrawing thirty
- * times a second would thrash the layout engine as elements; on a canvas it is
- * one paint per frame, and it stays smooth on a mid-range phone.
+ * The gradient is not a single straight createLinearGradient: a star that
+ * turns a corner would smear a straight gradient across the bend. Instead the
+ * line is drawn as short segments whose opacity ramps with distance from the
+ * head \u2014 the same dissolve, but it follows the path faithfully through
+ * ninety-degree turns.
  *
- * The trail is drawn as a fading polyline through the star's recent positions,
- * so a turn bends the tail properly instead of snapping it.
+ * Everything else is discipline: locked to the 64px lattice, turning only at
+ * intersections, paused when the hero is off-screen or the tab is hidden,
+ * skipped entirely under reduced motion.
  */
 
 const GRID = 64; // must match the background-size in .djn-hero__grid
-const COUNT_DESKTOP = 7;
-const COUNT_MOBILE = 4;
-const TURN_CHANCE = 0.22;
-const TRAIL = 22;
+const COUNT_DESKTOP = 6;
+const COUNT_MOBILE = 3;
+const TURN_CHANCE = 0.16;
+const TRAIL = 30; // points kept; at these speeds a tail of ~70\u2013130px
 
 type Dir = [number, number];
 const DIRS: Dir[] = [
@@ -60,38 +64,11 @@ export default function GridStars() {
     let raf = 0;
     let running = true;
 
-    /** Reads the accent straight off the cascade, so the stars change colour
-     *  with the theme without this component knowing anything about themes. */
+    /** The accent, read off the cascade so the comets follow the theme. */
     const accent = () =>
       getComputedStyle(document.documentElement)
         .getPropertyValue("--accent-graphic")
         .trim() || "#6f9400";
-
-    /* The glow, paid for once.
-       ctx.shadowBlur re-runs a gaussian blur for every star on every frame,
-       and it is the single most expensive call in the 2D canvas API. Instead
-       the glowing head is rendered ONE time into a small offscreen sprite,
-       and each frame just blits that bitmap, which is close to free. The
-       sprite is rebuilt only when the theme changes the accent colour. */
-    let sprite: HTMLCanvasElement | null = null;
-    let spriteColour = "";
-    function headSprite(colour: string): HTMLCanvasElement {
-      if (sprite && spriteColour === colour) return sprite;
-      const s = document.createElement("canvas");
-      const R = 12;
-      s.width = R * 2;
-      s.height = R * 2;
-      const sc = s.getContext("2d")!;
-      const g = sc.createRadialGradient(R, R, 0, R, R, R);
-      g.addColorStop(0, colour);
-      g.addColorStop(0.35, colour);
-      g.addColorStop(1, "transparent");
-      sc.fillStyle = g;
-      sc.fillRect(0, 0, R * 2, R * 2);
-      sprite = s;
-      spriteColour = colour;
-      return s;
-    }
 
     function spawn(edge = true): Star {
       const dir = DIRS[Math.floor(Math.random() * DIRS.length)];
@@ -101,7 +78,6 @@ export default function GridStars() {
       let x: number;
       let y: number;
       if (dir[0] !== 0) {
-        // travelling horizontally: enter from the left or right edge
         y = line;
         x = edge ? (dir[0] > 0 ? -GRID : w + GRID) : Math.random() * w;
       } else {
@@ -109,23 +85,19 @@ export default function GridStars() {
         y = edge ? (dir[1] > 0 ? -GRID : h + GRID) : Math.random() * h;
       }
 
-      const maxLife = 260 + Math.random() * 420;
       return {
         x,
         y,
         dir,
-        speed: 1.5 + Math.random() * 2.6,
+        speed: 2.2 + Math.random() * 2.4,
         trail: [],
         life: 0,
-        maxLife,
+        maxLife: 220 + Math.random() * 360,
       };
     }
 
     function resize() {
       const rect = canvas!.getBoundingClientRect();
-      /* Capped at 1.5, not 2. A 3x phone screen at full resolution quadruples
-         the pixels every frame pushes, and glowing trails do not need retina
-         precision to read as glowing trails. */
       dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       w = rect.width;
       h = rect.height;
@@ -134,12 +106,10 @@ export default function GridStars() {
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const count = w < 720 ? COUNT_MOBILE : COUNT_DESKTOP;
-      // seed mid-flight so the hero is already alive on first paint rather
-      // than waiting for stars to walk in from off-screen
+      // seeded mid-flight so the hero is alive on first paint
       stars = Array.from({ length: count }, () => spawn(false));
     }
 
-    /** True when the star is sitting on an intersection, within a step. */
     function atCrossing(s: Star) {
       const along = s.dir[0] !== 0 ? s.x : s.y;
       const offset = ((along - GRID / 2) % GRID + GRID) % GRID;
@@ -151,6 +121,8 @@ export default function GridStars() {
       ctx!.clearRect(0, 0, w, h);
 
       const colour = accent();
+      ctx!.strokeStyle = colour;
+      ctx!.lineCap = "round";
 
       for (let i = 0; i < stars.length; i++) {
         const s = stars[i];
@@ -162,8 +134,7 @@ export default function GridStars() {
         s.y += s.dir[1] * s.speed;
         s.life += 1;
 
-        // Turning is only allowed at an intersection, which is what keeps
-        // every star on the lattice no matter how erratic it looks.
+        // turning only at an intersection keeps every star on the lattice
         if (atCrossing(s) && Math.random() < TURN_CHANCE) {
           const turns: Dir[] =
             s.dir[0] !== 0
@@ -176,7 +147,6 @@ export default function GridStars() {
                   [-1, 0],
                 ];
           s.dir = turns[Math.floor(Math.random() * turns.length)];
-          // snap onto the line being joined, so the corner is exact
           if (s.dir[0] !== 0) {
             s.y = Math.round((s.y - GRID / 2) / GRID) * GRID + GRID / 2;
           } else {
@@ -190,26 +160,21 @@ export default function GridStars() {
           continue;
         }
 
-        // fade in at birth and out at the end, so nothing ever pops
-        const fade =
-          Math.min(1, s.life / 40) * Math.min(1, (s.maxLife - s.life) / 70);
+        // fade in at birth, out at the end of life; nothing pops
+        const fade = Math.min(1, s.life / 40) * Math.min(1, (s.maxLife - s.life) / 60);
 
-        // tail: each segment dimmer and thinner than the one ahead of it
-        for (let t = 1; t < s.trail.length; t++) {
-          const a = (t / s.trail.length) * 0.55 * fade;
+        // the gradient: opacity ramps from 0 at the tail tip to full at the
+        // head, eased so the tail stays long and quiet
+        const n = s.trail.length;
+        for (let t = 1; t < n; t++) {
+          const k = t / n;
+          ctx!.globalAlpha = k * k * 0.8 * fade;
+          ctx!.lineWidth = 1.6;
           ctx!.beginPath();
-          ctx!.strokeStyle = colour;
-          ctx!.globalAlpha = a;
-          ctx!.lineWidth = 0.6 + (t / s.trail.length) * 1.1;
-          ctx!.lineCap = "round";
           ctx!.moveTo(s.trail[t - 1].x, s.trail[t - 1].y);
           ctx!.lineTo(s.trail[t].x, s.trail[t].y);
           ctx!.stroke();
         }
-
-        // head: one blit of the pre-rendered glow
-        ctx!.globalAlpha = 0.95 * fade;
-        ctx!.drawImage(headSprite(colour), s.x - 12, s.y - 12);
       }
 
       ctx!.globalAlpha = 1;
@@ -220,21 +185,15 @@ export default function GridStars() {
     step();
 
     const onResize = () => resize();
-    // Stop entirely when the tab is hidden. A background rAF loop on a phone
-    // is a battery cost the reader never agreed to.
     const onVisibility = () => {
       running = !document.hidden;
-      if (running) {
-        raf = requestAnimationFrame(step);
-      } else {
-        cancelAnimationFrame(raf);
-      }
+      if (running) raf = requestAnimationFrame(step);
+      else cancelAnimationFrame(raf);
     };
 
     window.addEventListener("resize", onResize);
     document.addEventListener("visibilitychange", onVisibility);
 
-    // Pause once the hero has scrolled away; nobody is watching.
     const io = new IntersectionObserver(
       ([entry]) => {
         running = entry.isIntersecting && !document.hidden;
@@ -264,8 +223,6 @@ export default function GridStars() {
         width: "100%",
         height: "100%",
         pointerEvents: "none",
-        // the same mask as the grid beneath it, so the trails dissolve toward
-        // the edges instead of stopping at a hard line
         maskImage:
           "radial-gradient(ellipse 80% 60% at 50% 40%, #000 20%, transparent 75%)",
         WebkitMaskImage:

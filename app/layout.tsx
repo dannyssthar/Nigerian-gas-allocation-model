@@ -1,25 +1,26 @@
 import type { Metadata } from "next";
-import { Urbanist, Manrope, JetBrains_Mono } from "next/font/google";
+import { Manrope, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const urbanist = Urbanist({
+/**
+ * Two faces, one temperament. Space Grotesk carries display type: geometric
+ * skeleton, a little character in the terminals, reads as engineered rather
+ * than decorated. Manrope carries everything else — body, labels, and the
+ * numbers, where its tabular-figures feature does the one job the retired
+ * monospace was there for. A data product does not need to dress as a
+ * terminal to be taken seriously.
+ */
+const grotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-urbanist",
-  weight: ["600", "700", "800"],
+  variable: "--font-grotesk",
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
 const manrope = Manrope({
   subsets: ["latin"],
   variable: "--font-manrope",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains",
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -53,7 +54,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${urbanist.variable} ${manrope.variable} ${jetbrains.variable}`}
+      className={`${grotesk.variable} ${manrope.variable}`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

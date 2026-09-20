@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CURRENCIES, PINNED, byCode } from "@/lib/currencies";
+import { lockScroll, unlockScroll } from "@/lib/scroll-lock";
+import Btn from "./Button";
 import { useCurrency } from "@/lib/currency-context";
 
 /**
@@ -40,10 +42,13 @@ export default function CurrencyControl() {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
+    // Refcounted: this panel often opens ON TOP of the assumptions overlay,
+    // and independent body locks are how the page ends up frozen after one of
+    // them closes.
+    lockScroll();
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      unlockScroll();
     };
   }, [open]);
 
@@ -92,32 +97,36 @@ export default function CurrencyControl() {
         createPortal(
           <AnimatePresence>
             {open && (
-              <>
+              <div className="djn-overlay" style={{ zIndex: 240 }}>
                 <motion.div
-                  className="djn-currency-scrim"
+                  className="djn-overlay__scrim"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.22 }}
                   onClick={() => setOpen(false)}
                 />
+                {/* Centred by the flex wrapper. No transform is used for
+                    position, so the entrance spring cannot beach the panel in
+                    a corner — the desktop "stuck at the bottom" bug was
+                    exactly Framer overwriting a translate(-50%,-50%). */}
                 <motion.div
-                  className="djn-currency-panel r-modal"
+                  className="djn-panel djn-panel--currency"
                   role="dialog"
                   aria-modal="true"
                   aria-label="Choose a display currency"
-                  initial={{ opacity: 0, scale: 0.96, y: 14 }}
+                  initial={{ opacity: 0, scale: 0.94, y: 16 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.97, y: 8 }}
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                  exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                  transition={{ type: "spring", stiffness: 360, damping: 32 }}
                 >
-                  <div className="djn-currency-panel__head">
+                  <div className="djn-panel__head" style={{ padding: 0, border: 0, marginBottom: "var(--s4)" }}>
                     <h2 className="djn-title" style={{ fontSize: "1.05rem" }}>
                       Display currency
                     </h2>
-                    <button className="djn-btn djn-btn--ghost r-pill" onClick={() => setOpen(false)}>
+                    <Btn variant="ghost" onClick={() => setOpen(false)}>
                       Close
-                    </button>
+                    </Btn>
                   </div>
 
                   <div className="djn-currency-search">
@@ -210,9 +219,9 @@ export default function CurrencyControl() {
                         "\u00a0"
                       )}
                     </p>
-                    <button className="djn-btn djn-btn--accent r-pill" onClick={apply} disabled={!rateOk} style={{ opacity: rateOk ? 1 : 0.45 }}>
+                    <Btn variant="accent" onClick={apply} disabled={!rateOk} style={{ opacity: rateOk ? 1 : 0.45 }}>
                       Use {picked}
-                    </button>
+                    </Btn>
                   </div>
 
                   <p className="djn-currency-note">
@@ -220,7 +229,7 @@ export default function CurrencyControl() {
                     published papers stay in dollars so the citation stays exact.
                   </p>
                 </motion.div>
-              </>
+              </div>
             )}
           </AnimatePresence>,
           document.body
