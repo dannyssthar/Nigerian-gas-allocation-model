@@ -2,7 +2,6 @@
 
 Techno-economic engine for *Powering Compute or Powering the Nation? A Decision-Support
 Tool for Siting AI Data Centres in Nigeria*. Daniel Chibuzor, CPEEL, University of Ibadan.
-Supervisor: Dr. Dilinna Lucy Nwobi.
 
 ## What it does
 
@@ -17,8 +16,6 @@ out-earning its best alternative.
 | `netback.py` | The four pathways: compute, grid, fertiliser, LNG. |
 | `uncertainty.py` | Latin Hypercube sampling and Brent break-even solver. |
 | `sensitivity.py` | Sobol global sensitivity indices. |
-| `lcoe.py` | Objective 2: levelised cost of compute-grade electricity by site. |
-| `sites.py` | Six candidate Nigerian sites: climate, gas access, flare distance, fibre. |
 
 ## Status of the numbers
 
@@ -36,7 +33,7 @@ python -m gascompute.parameters
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python -m pytest tests/ -v         # 23 golden tests, all must pass
+python -m pytest tests/ -v         # 17 golden tests, all must pass
 python -m gascompute.parameters    # provenance audit
 ```
 
