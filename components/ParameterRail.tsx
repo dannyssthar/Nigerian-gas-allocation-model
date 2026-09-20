@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { ParameterDef } from "@/lib/api";
 import { dpFor, num, stepFor } from "@/lib/api";
 import type { GLOSSARY } from "@/lib/glossary";
+import CurrencyControl from "./CurrencyControl";
 import { ProvenanceChip } from "./Primitives";
 import { Info, Unit } from "./Tooltip";
 
@@ -97,6 +98,8 @@ const UNIT_TERMS: Record<string, keyof typeof GLOSSARY> = {
   "PUE/fraction RH": "PUEabbr",
 };
 
+type Mode = "slide" | "type";
+
 export default function ParameterRail({
   parameters,
   values,
@@ -115,6 +118,12 @@ export default function ParameterRail({
   const byName = new Map(parameters.map((p) => [p.name, p]));
   const touched = Object.keys(values).length;
 
+  /* Two ways to give a number, because there are two kinds of reader. A
+     browser drags to explore; an expert arrives holding an exact figure and a
+     slider forces them to chase it. The toggle is global rather than
+     per-field: someone typing one value will type the next one too. */
+  const [mode, setMode] = useState<Mode>("slide");
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--s8)" }}>
       <div>
@@ -130,6 +139,31 @@ export default function ParameterRail({
           Disagree with a number? Change it. The model recomputes in under a third of a second, and
           every figure on the page moves with it.
         </p>
+
+        <div className="djn-seg" role="radiogroup" aria-label="How to set values" style={{ marginTop: "var(--s4)" }}>
+          {(["slide", "type"] as Mode[]).map((m) => (
+            <button
+              key={m}
+              role="radio"
+              aria-checked={mode === m}
+              className="djn-seg__opt"
+              onClick={() => setMode(m)}
+            >
+              {mode === m && (
+                <motion.span
+                  layoutId="rail-mode"
+                  className="djn-seg__thumb"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+              {m === "slide" ? "Sliders" : "Type values"}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ marginTop: "var(--s4)" }}>
+          <CurrencyControl />
+        </div>
 
         <AnimatePresence>
           {touched > 0 && (
@@ -169,13 +203,14 @@ export default function ParameterRail({
             </div>
 
             {defs.map((def, di) => (
-              <Slider
+              <Field
                 key={def.name}
                 def={def}
+                mode={mode}
                 value={values[def.name] ?? def.value}
                 overridden={def.name in values}
                 onChange={(v) => onChange(def.name, v)}
-                /* the very first slider gets the tour hook and a soft pulse,
+                /* the very first control gets the tour hook and a soft pulse,
                    so a new visitor has an obvious place to start */
                 tourTarget={gi === 0 && di === 0}
               />
@@ -191,56 +226,102 @@ export default function ParameterRail({
   );
 }
 
-function Slider({
+function Field({
   def,
+  mode,
   value,
   overridden,
   onChange,
   tourTarget,
 }: {
   def: ParameterDef;
+  mode: Mode;
   value: number;
   overridden: boolean;
   onChange: (v: number) => void;
   tourTarget?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // Typed text is kept separate from the committed number, so half-typed
+  // states like "1." or "" never reach the engine.
+  const [draft, setDraft] = useState<string | null>(null);
   const low = def.low ?? def.value * 0.5;
   const high = def.high ?? def.value * 1.5;
   const dp = dpFor(low, high);
   const fill = ((value - low) / (high - low)) * 100;
   const unitTerm = UNIT_TERMS[def.unit];
 
+  const outOfRange = value < low || value > high;
+
+  function commitDraft() {
+    if (draft === null) return;
+    const parsed = parseFloat(draft.replace(/,/g, ""));
+    if (Number.isFinite(parsed)) onChange(parsed);
+    setDraft(null);
+  }
+
   return (
     <div className="djn-field" data-tour={tourTarget ? "rail" : undefined}>
       <div className="djn-field__top">
         <label htmlFor={def.name}>{def.label}</label>
-        <span
-          className="tnum"
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "var(--fs-sm)",
-            fontWeight: 680,
-            color: overridden ? "var(--accent-text)" : "var(--text-primary)",
-          }}
-        >
-          {num(value, dp)}
-        </span>
+        {mode === "slide" && (
+          <span
+            className="tnum"
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "var(--fs-sm)",
+              fontWeight: 680,
+              color: overridden ? "var(--accent-text)" : "var(--text-primary)",
+            }}
+          >
+            {num(value, dp)}
+          </span>
+        )}
       </div>
 
-      <input
-        id={def.name}
-        type="range"
-        className={`djn-range${tourTarget && !overridden ? " djn-hint" : ""}`}
-        min={low}
-        max={high}
-        step={stepFor(low, high)}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        aria-describedby={`${def.name}-meta`}
-        aria-valuetext={`${num(value, dp)} ${def.unit}`}
-        style={{ ["--fill" as string]: `${fill}%` }}
-      />
+      {mode === "slide" ? (
+        <input
+          id={def.name}
+          type="range"
+          className={`djn-range${tourTarget && !overridden ? " djn-hint" : ""}`}
+          min={low}
+          max={high}
+          step={stepFor(low, high)}
+          value={Math.min(Math.max(value, low), high)}
+          onChange={(e) => onChange(Number(e.target.value))}
+          aria-describedby={`${def.name}-meta`}
+          aria-valuetext={`${num(value, dp)} ${def.unit}`}
+          style={{ ["--fill" as string]: `${fill}%` }}
+        />
+      ) : (
+        <div className="djn-numfield" data-overridden={overridden}>
+          <input
+            id={def.name}
+            inputMode="decimal"
+            value={draft ?? num(value, dp)}
+            onFocus={(e) => {
+              setDraft(String(value));
+              // select-all on focus: the common intent is replace, not append
+              requestAnimationFrame(() => e.target.select());
+            }}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commitDraft}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              if (e.key === "Escape") setDraft(null);
+            }}
+            aria-describedby={`${def.name}-meta`}
+          />
+          <span className="djn-numfield__unit">{def.unit}</span>
+        </div>
+      )}
+
+      {mode === "type" && outOfRange && (
+        <p style={{ fontSize: "var(--fs-micro)", color: "var(--status-warning)", lineHeight: 1.5 }}>
+          Outside the tested range ({num(low, dp)}–{num(high, dp)}). The model will still run
+          with it, and the value stays pinned exactly as typed.
+        </p>
+      )}
 
       <div id={`${def.name}-meta`} className="flex items-center justify-between gap-2">
         <span className="djn-data-label">
