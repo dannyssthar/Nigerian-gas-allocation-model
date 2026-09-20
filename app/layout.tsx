@@ -24,7 +24,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DJN · Gas Allocation Model",
+  title: "NGAM · Nigeria Gas Allocation Model",
   description:
     "Decision-support tool for siting AI data centres in Nigeria. Values one MMBtu of gas across compute, grid power, fertiliser and LNG export.",
 };
