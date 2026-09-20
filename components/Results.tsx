@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import type { ScenarioResponse } from "@/lib/api";
 import { money, num, pct } from "@/lib/api";
+import { useCurrency } from "@/lib/currency-context";
 import { CountUp, ProvenanceChip, SectionHead } from "./Primitives";
 import { Info, Term, Unit } from "./Tooltip";
 
@@ -18,6 +19,7 @@ import { Info, Term, Unit } from "./Tooltip";
  * evidence beneath it.
  */
 export function Verdict({ data }: { data: ScenarioResponse }) {
+  const { fmt, symbol, rate: fx } = useCurrency();
   const winner = data.netback.find((n) => n.key === data.winner);
   const runnerUp = data.netback[1];
   if (!winner) return null;
@@ -40,7 +42,7 @@ export function Verdict({ data }: { data: ScenarioResponse }) {
 
       <div style={{ display: "flex", alignItems: "baseline", gap: "var(--s4)", flexWrap: "wrap", marginTop: "var(--s4)" }}>
         <p className="djn-display" style={{ fontSize: "var(--fs-display-2xl)" }}>
-          <CountUp value={winner.value} decimals={2} prefix="$" />
+          <CountUp value={winner.value * fx} decimals={winner.value * fx >= 10000 ? 0 : 2} prefix={symbol} />
         </p>
         <p className="djn-data-label">
           per <Unit k="MMBtu" />, as {winner.label.toLowerCase()}
@@ -59,14 +61,14 @@ export function Verdict({ data }: { data: ScenarioResponse }) {
               {margin.toFixed(1)} times
             </strong>{" "}
             over {runnerUp?.label.toLowerCase()}. It stops winning below{" "}
-            <strong style={{ color: "var(--text-primary)" }}>{money(data.breakeven.point)}</strong>{" "}
+            <strong style={{ color: "var(--text-primary)" }}>{fmt(data.breakeven.point)}</strong>{" "}
             per <Term k="acceleratorHour">accelerator-hour</Term>.
           </>
         ) : (
           <>
             At these assumptions, {winner.label.toLowerCase()} earns most from the gas. Compute
             would need{" "}
-            <strong style={{ color: "var(--accent-text)" }}>{money(data.breakeven.point)}</strong>{" "}
+            <strong style={{ color: "var(--accent-text)" }}>{fmt(data.breakeven.point)}</strong>{" "}
             per <Term k="acceleratorHour">accelerator-hour</Term> to overtake it.
           </>
         )}
@@ -104,6 +106,7 @@ export function Verdict({ data }: { data: ScenarioResponse }) {
  * chart is for, which is seeing which bar is longest.
  */
 export function NetbackChart({ data }: { data: ScenarioResponse }) {
+  const { fmt } = useCurrency();
   const max = Math.max(...data.netback.map((n) => Math.max(n.value, n.p90)));
   const min = Math.min(0, ...data.netback.map((n) => n.p10));
   const span = max - min || 1;
@@ -158,7 +161,7 @@ export function NetbackChart({ data }: { data: ScenarioResponse }) {
                     color: isWinner ? "var(--accent-text)" : "var(--text-secondary)",
                   }}
                 >
-                  {money(row.value)}
+                  {fmt(row.value)}
                 </span>
               </div>
 
@@ -191,8 +194,8 @@ export function NetbackChart({ data }: { data: ScenarioResponse }) {
               </div>
 
               <p className="djn-data-label" style={{ marginTop: 6 }}>
-                <Unit k="percentiles">P10</Unit> {money(row.p10)} &middot; P50 {money(row.p50)}{" "}
-                &middot; P90 {money(row.p90)}
+                <Unit k="percentiles">P10</Unit> {fmt(row.p10)} &middot; P50 {fmt(row.p50)}{" "}
+                &middot; P90 {fmt(row.p90)}
               </p>
             </div>
           );
@@ -204,7 +207,7 @@ export function NetbackChart({ data }: { data: ScenarioResponse }) {
         bracket across each bar is the range across {data.draws.toLocaleString()}{" "}
         <Unit k="LHSabbr" /> runs, not an error bar. A wide bracket means the result depends heavily
         on assumptions you can change on the left. The regulated gas price for power is{" "}
-        {money(data.gas_price_power)} per <Unit k="MMBtu" />, so a route only makes sense at all if
+        {fmt(data.gas_price_power)} per <Unit k="MMBtu" />, so a route only makes sense at all if
         its bar clears that.
       </p>
     </section>
@@ -224,6 +227,7 @@ export function NetbackChart({ data }: { data: ScenarioResponse }) {
  * central result.
  */
 export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
+  const { fmt, symbol, rate: fx } = useCurrency();
   const b = data.breakeven;
   const gasShare = b.cash_cost > 0 ? b.gas_opportunity_cost / b.cash_cost : 0;
 
@@ -244,7 +248,7 @@ export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
 
       <div style={{ display: "flex", alignItems: "baseline", gap: "var(--s3)", flexWrap: "wrap" }}>
         <p className="djn-display" style={{ fontSize: "var(--fs-display-xl)", color: "var(--accent-text)" }}>
-          <CountUp value={b.point} decimals={2} prefix="$" />
+          <CountUp value={b.point * fx} decimals={b.point * fx >= 10000 ? 0 : 2} prefix={symbol} />
         </p>
         <p className="djn-data-label">
           per <Unit k="acceleratorHour">accelerator-hour</Unit>
@@ -255,15 +259,15 @@ export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
         {data.comparator.is_price_floor ? (
           <>
             Right now no other use of the gas even covers what the gas already sells for, so the
-            thing compute has to beat is simply that price: {money(data.comparator.value)} per unit.
-            Below {money(b.point)} an hour, nobody would hand the gas over at all.
+            thing compute has to beat is simply that price: {fmt(data.comparator.value)} per unit.
+            Below {fmt(b.point)} an hour, nobody would hand the gas over at all.
           </>
         ) : (
           <>
             Below this, the same gas makes more money as{" "}
             {data.comparator.label.toLowerCase()}. Try different assumptions on the left and this
             number moves: across everything the model considers plausible, it lands somewhere
-            between {money(b.p10)} and {money(b.p90)}.
+            between {fmt(b.p10)} and {fmt(b.p90)}.
           </>
         )}
       </p>
@@ -280,17 +284,17 @@ export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
       >
         <Metric
           label="Cost of running one chip for an hour"
-          value={b.cash_cost}
-          dp={4}
-          prefix="$"
+          value={b.cash_cost * fx}
+          dp={b.cash_cost * fx >= 100 ? 2 : 4}
+          prefix={symbol}
           caption="Buying the machine, housing it, and keeping it running. Before any gas is paid for."
           glossary="crf"
         />
         <Metric
           label="Value of the gas"
-          value={b.gas_opportunity_cost}
-          dp={4}
-          prefix="$"
+          value={b.gas_opportunity_cost * fx}
+          dp={b.gas_opportunity_cost * fx >= 100 ? 2 : 4}
+          prefix={symbol}
           caption={`Just ${pct(gasShare, 1)} of what the machine itself costs to run`}
           glossary="opportunityCost"
           accent
@@ -327,8 +331,8 @@ export function BreakevenPanel({ data }: { data: ScenarioResponse }) {
               marginTop: "var(--s3)",
             }}
           >
-            The gas going into one chip-hour is worth {money(b.gas_opportunity_cost, 4)}. The chip
-            itself costs {money(b.cash_cost)} an hour to run. So the gas is under {pct(gasShare, 0)}{" "}
+            The gas going into one chip-hour is worth {fmt(b.gas_opportunity_cost, 4)}. The chip
+            itself costs {fmt(b.cash_cost)} an hour to run. So the gas is under {pct(gasShare, 0)}{" "}
             of the bill.
             <br />
             <br />
@@ -398,6 +402,7 @@ export function Distribution({
   p50: number;
   p90: number;
 }) {
+  const { fmt, isUSD, code } = useCurrency();
   if (!samples?.length) return null;
 
   const bins = 34;
@@ -470,9 +475,9 @@ export function Distribution({
       </div>
 
       <div className="flex justify-between" style={{ marginTop: "var(--s3)" }}>
-        <span className="djn-data-label">{money(lo)}</span>
-        <span className="djn-data-label">break-even, US$ per accelerator-hour</span>
-        <span className="djn-data-label">{money(hi)}</span>
+        <span className="djn-data-label">{fmt(lo)}</span>
+        <span className="djn-data-label">break-even, {isUSD ? "US$" : code} per accelerator-hour</span>
+        <span className="djn-data-label">{fmt(hi)}</span>
       </div>
     </section>
   );
@@ -483,6 +488,7 @@ export function Distribution({
    ════════════════════════════════════════════════════════════════════ */
 
 export function SiteTable({ data }: { data: ScenarioResponse }) {
+  const { fmt } = useCurrency();
   const sites = data.lcoe.sites;
   const cheapest = sites[0];
   const lagos = sites.find((s) => s.key === "lagos");
@@ -495,6 +501,9 @@ export function SiteTable({ data }: { data: ScenarioResponse }) {
         eyebrow="Step four"
         title="Where it would actually be cheapest"
         glossary="computeGrade"
+        /* Two different quantities appear in this section and they must never
+           read as one: the busbar cost (leaving the generator) and the
+           compute-grade cost (delivered to the chip, = busbar × PUE). */
         explain={
           <>
             The same generator at six Nigerian locations. Only two things change: how hard the
@@ -518,7 +527,7 @@ export function SiteTable({ data }: { data: ScenarioResponse }) {
                 Gas <Unit k="USDMMBtu">US$/MMBtu</Unit>
               </th>
               <th style={{ textAlign: "right" }}>
-                <Unit k="centsKwh">US cents/kWh</Unit>
+                <Unit k="centsKwh">US cents/kWh, at the chip</Unit>
               </th>
               <th style={{ textAlign: "right" }}>
                 <Unit k="fuelShare">Fuel share</Unit>
@@ -575,9 +584,12 @@ export function SiteTable({ data }: { data: ScenarioResponse }) {
             flare gas is, and the fibre does not.{" "}
           </>
         )}
-        Gas generation costs {money(data.lcoe.busbar_usd_per_mwh)} per <Unit k="MWh" /> at the
-        busbar against {money(data.lcoe.solar_battery_benchmark_usd_per_mwh)} for solar plus
-        battery (Uranbold and Lima, 2025), which is the reliability premium that paper identifies.
+        This model computes gas generation at {fmt(data.lcoe.busbar_usd_per_mwh)} per{" "}
+        <Unit k="MWh" /> at the busbar — our own output, not a published figure. For scale,
+        Uranbold and Lima (2025) report {money(data.lcoe.solar_battery_benchmark_usd_per_mwh)} for
+        solar plus battery and $37.69 for natural gas; our gas figure sits above theirs mainly
+        because of the Nigerian cost of capital and availability assumed here, both currently
+        unsourced.
       </p>
     </section>
   );
